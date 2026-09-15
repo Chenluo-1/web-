@@ -11,7 +11,7 @@ Web应用项目实训课程设计（CW3104）。一个面向店铺运营的电�
 - Spring Security + JWT (jjwt 0.9.0) + Redis
 - MyBatis-Plus 3.4.2（mapper XML 放 classpath*:/mapper/**/*.xml，主键 id-type: auto）
 - Druid 连接池
-- MySQL 8（库名 ecom，字符集 utf8mb4）
+- MySQL（库名 ecom，字符集 utf8mb4；本机为 5.7.28，DDL/查询语法必须兼容 5.7）
 - MinIO（商品图片存储）
 - springfox-swagger2 2.9.2
 - 前端：Vue 3.2 + Element Plus + Pinia + Vue Router 4 + Axios + ECharts
@@ -71,7 +71,8 @@ Web应用项目实训课程设计（CW3104）。一个面向店铺运营的电�
 - 不要用 RabbitMQ（本项目不需要，降低环境负担）
 
 ## 当前环境
-- 本地 MySQL：localhost:3306，用户 root，密码 root
+- 本地 MySQL：localhost:3306（MySQL 5.7.28，服务名 MySQL57），用户 root，密码 123456
+  - 客户端路径：C:\Program Files\MySQL\MySQL Server 5.7\bin\mysql.exe
 - 本地 Redis：localhost:6379
 - 本地 MinIO：localhost:9000，minioadmin/minioadmin（P2 前无需启动）
 - 文件上传目录：D:\ecom\

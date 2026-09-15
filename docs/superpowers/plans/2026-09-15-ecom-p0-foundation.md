@@ -14,7 +14,7 @@
 
 - **构建命令必须显式指定 JDK 1.8**（本机 JAVA_HOME 默认 17，Boot 2.5 不支持）：Git Bash 下 `JAVA_HOME="/c/Program Files/Java/jdk-1.8" mvn ...`
 - 版本锁定：Spring Boot 2.5.0、MyBatis-Plus 3.4.2、jjwt 0.9.0、springfox 2.9.2、fastjson 1.2.33、druid-spring-boot-starter 1.2.4、Java 1.8；**不擅自升级**
-- 端口：后端 8888（接口路径**不带** `/api` 前缀，前端代理负责）、前端 8082、MySQL 3306(root/root)、Redis 6379
+- 端口：后端 8888（接口路径**不带** `/api` 前缀，前端代理负责）、前端 8082、MySQL 3306(root/123456，MySQL 5.7.28，客户端 `C:\Program Files\MySQL\MySQL Server 5.7\bin\mysql.exe`)、Redis 6379
 - 后端接口一律返回 `cn.ecom.utils.ResponseResult<T>`；错误码一律用 `AppHttpCodeEnum`，禁止硬编码数字
 - 分页参数 `pageNum`/`pageSize`；RESTful 路径规范照 spec 2.1（`GET/POST/PUT/DELETE`）
 - 数据库：表前缀 `sys_`/`ec_`，每表必备 `id`(bigint 自增)/`create_time`/`update_time`/`del_flag`，逻辑删除，金额 `decimal(12,2)`，utf8mb4；所有变更同步 `sql/ecom.sql`

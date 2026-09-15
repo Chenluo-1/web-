@@ -48,7 +48,7 @@ D:\webxiangmu\ecom\
 | 安全 | Spring Security + JWT (jjwt) + Redis | jjwt 0.9.0 |
 | ORM | MyBatis-Plus（mapper xml 在 `classpath*:/mapper/**/*.xml`，主键 `id-type: auto`） | 3.4.2 |
 | 连接池 | Druid | 对齐 seig |
-| 数据库 | MySQL 8（`ecom`，utf8mb4） | 8.x |
+| 数据库 | MySQL（`ecom`，utf8mb4） | 本机 5.7.28，DDL 兼容 5.x/8.x |
 | 文件存储 | MinIO（P2 接入） | — |
 | 接口文档 | springfox-swagger2 / swagger-ui | 2.9.2 |
 | 前端 | Vue + Element Plus + Pinia + Router4 + Axios + ECharts + nprogress + sass | Vue 3.2 / CLI 5 |
@@ -59,7 +59,7 @@ D:\webxiangmu\ecom\
 |---|---|
 | 后端 | 8888（接口无 `/api` 前缀，由前端代理负责） |
 | 前端 dev | 8082（`vue.config.js` 将 `/api` 代理到 8888） |
-| MySQL | localhost:3306，root/root |
+| MySQL | localhost:3306，root/123456（MySQL 5.7.28，客户端在 `C:\Program Files\MySQL\MySQL Server 5.7\bin\mysql.exe`） |
 | Redis | localhost:6379 |
 | MinIO | localhost:9000（P2 前无需启动），minioadmin/minioadmin |
 | 上传目录（备用） | D:\ecom\ |
