@@ -13,7 +13,7 @@
 
     <el-row :gutter="14" class="grid" v-loading="loading">
       <el-col :span="6" v-for="item in list" :key="item.id">
-        <el-card shadow="hover" class="product-card">
+        <el-card shadow="hover" class="product-card" @click="reportClick(item.id)">
           <el-image :src="item.mainImage" fit="cover" class="product-img" :preview-src-list="[item.mainImage]" preview-teleported>
             <template #error><div class="img-holder">暂无图片</div></template>
           </el-image>
@@ -84,6 +84,7 @@ import { ElMessage } from 'element-plus'
 import productHttp from '@/api/productHttp'
 import cartHttp from '@/api/cartHttp'
 import couponHttp from '@/api/couponHttp'
+import behaviorHttp from '@/api/behaviorHttp'
 
 const loading = ref(false)
 const list = ref([])
@@ -123,7 +124,12 @@ const matchedSku = computed(() => {
   }) || null
 })
 
+const reportClick = id => {
+  behaviorHttp.report({ eventType: 'click', targetType: 'product', targetId: id }).catch(() => {})
+}
+
 const openSkuDialog = async item => {
+  behaviorHttp.report({ eventType: 'expose', targetType: 'product', targetId: item.id }).catch(() => {})
   const res = await productHttp.getProductById(item.id)
   const d = res.data
   currentProduct.value = {
