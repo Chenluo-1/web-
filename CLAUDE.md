@@ -73,6 +73,8 @@ Web应用项目实训课程设计（CW3104）。一个面向店铺运营的电�
 ## 当前环境
 - 本地 MySQL：localhost:3306（MySQL 5.7.28，服务名 MySQL57），用户 root，密码 123456
   - 客户端路径：C:\Program Files\MySQL\MySQL Server 5.7\bin\mysql.exe
+- 默认账号：admin / admin123（超管）；新建用户不填密码时默认 123456
+- 登录态：Redis key `user:{id}`，token 放请求头 `authorization`（前端存 sessionStorage 同名字段）
 - 本地 Redis：localhost:6379
 - 本地 MinIO：localhost:9000，minioadmin/minioadmin（P2 前无需启动）
 - 文件上传目录：D:\ecom\

@@ -5,6 +5,7 @@ module.exports = defineConfig({
   lintOnSave: false,
   devServer: {
     port: 8082,
+    historyApiFallback: true,
     proxy: {
       '/api': {
         target: 'http://localhost:8888',
