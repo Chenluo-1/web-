@@ -22,10 +22,18 @@
     <build>
         <finalName>ecom-system</finalName>
         <plugins>
-            <!-- 可执行 jar（P8 部署要用） -->
+            <!-- 可执行 jar（P8 部署要用）。未使用 starter-parent，需显式指定版本与 repackage 目标 -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>2.5.0</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
