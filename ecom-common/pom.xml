@@ -61,6 +61,12 @@
             <groupId>com.alibaba</groupId>
             <artifactId>druid-spring-boot-starter</artifactId>
         </dependency>
+        <!-- MinIO 客户端（商品图片存储，版本对齐 seig） -->
+        <dependency>
+            <groupId>io.minio</groupId>
+            <artifactId>minio</artifactId>
+            <version>8.2.2</version>
+        </dependency>
         <!-- SpringSecurity（P1 鉴权体系） -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

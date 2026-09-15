@@ -673,6 +673,27 @@ INSERT INTO `sys_menu` (`id`, `parent_id`, `name`, `menu_type`, `url_path`, `com
 (29, 19, '分配权限', 'F', '/sys/role/setMenu',  'sysRoleSetMenu', 'sys:role:setMenu', NULL, 0, 1, 0),
 (30, 1,  '修改密码', 'F', '/home/password/change', 'homePasswordChange', 'home:password:change', NULL, 0, 1, 0);
 
+-- 2.2) 商品管理菜单（P2 增量：M/C/F）
+INSERT INTO `sys_menu` (`id`, `parent_id`, `name`, `menu_type`, `url_path`, `component`, `permit`, `icon`, `order_num`, `visible`, `status`) VALUES
+(3,  0,  '商品管理', 'M', '/product',          'product',         'product',          'iconfont icon-shangpin', 3, 0, 0),
+(31, 3,  '类目管理', 'C', '/product/category', 'productCategory', 'product:category', NULL, 10, 0, 0),
+(32, 3,  '商品列表', 'C', '/product/list',     'productList',     'product:item',     NULL, 11, 0, 0),
+(33, 31, '搜索类目', 'F', '/product/category/find', 'productCategoryFind', 'product:category:find', NULL, 0, 1, 0),
+(34, 31, '新增类目', 'F', '/product/category/add',  'productCategoryAdd',  'product:category:add',  NULL, 0, 1, 0),
+(35, 31, '修改类目', 'F', '/product/category/edit', 'productCategoryEdit', 'product:category:edit', NULL, 0, 1, 0),
+(36, 31, '删除类目', 'F', '/product/category/del',  'productCategoryDel',  'product:category:del',  NULL, 0, 1, 0),
+(37, 32, '搜索商品', 'F', '/product/item/find',   'productItemFind',   'product:item:find',   NULL, 0, 1, 0),
+(38, 32, '新增商品', 'F', '/product/item/add',    'productItemAdd',    'product:item:add',    NULL, 0, 1, 0),
+(39, 32, '修改商品', 'F', '/product/item/edit',   'productItemEdit',   'product:item:edit',   NULL, 0, 1, 0),
+(40, 32, '删除商品', 'F', '/product/item/del',    'productItemDel',    'product:item:del',    NULL, 0, 1, 0),
+(41, 32, '上下架',   'F', '/product/item/status', 'productItemStatus', 'product:item:status', NULL, 0, 1, 0),
+(42, 32, '上传图片', 'F', '/product/item/upload', 'productItemUpload', 'product:item:upload', NULL, 0, 1, 0);
+
+-- 商品管理菜单分配给：超管(1) 与 商品运营(2)；商品运营同时拥有首页
+INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES
+(1, 3),(1, 31),(1, 32),(1, 33),(1, 34),(1, 35),(1, 36),(1, 37),(1, 38),(1, 39),(1, 40),(1, 41),(1, 42),
+(2, 1),(2, 3),(2, 31),(2, 32),(2, 33),(2, 34),(2, 35),(2, 36),(2, 37),(2, 38),(2, 39),(2, 40),(2, 41),(2, 42);
+
 -- 3) 超管账号（密码 admin123 的 BCrypt 哈希）
 INSERT INTO `sys_user` (`id`, `username`, `nick_name`, `password`, `user_type`, `status`) VALUES
 (1, 'admin', '超级管理员', '$2a$10$wS4a99L9y.o1BkbE8MENB.fCG/Ke8YWfFViI6t3RhqvE1mUE5aBSK', 0, 0);
