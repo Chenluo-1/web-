@@ -17,7 +17,8 @@ const routes = [
       { path: '/home', name: 'home', component: () => import('@/components/home') },
       { path: '/product/edit', name: 'productEdit', component: () => import('@/components/productEdit') },
       { path: '/order/confirm', name: 'orderConfirm', component: () => import('@/components/orderConfirm') },
-      { path: '/order/pay', name: 'orderPay', component: () => import('@/components/orderPay') }
+      { path: '/order/pay', name: 'orderPay', component: () => import('@/components/orderPay') },
+      { path: '/order/detail', name: 'orderDetail', component: () => import('@/components/orderDetail') }
     ]
   },
   { path: '/404', name: 'NotFound', component: () => import('@/views/404') }

@@ -25,10 +25,66 @@ function selectMyOrderByPage(data) {
   return request.get('/order/mine', { params: data })
 }
 
+// 订单详情（时间轴 + 物流 + 退款单）
+function getOrderDetail(orderNo) {
+  return request.get('/order/' + orderNo + '/detail')
+}
+
+// 取消订单（仅待支付）
+function cancelOrder(orderNo) {
+  return request.post('/order/' + orderNo + '/cancel')
+}
+
+// 确认收货（仅运输中）
+function receiveOrder(orderNo) {
+  return request.post('/order/' + orderNo + '/receive')
+}
+
+// 申请退款（仅待发货）
+function applyRefund(orderNo, data) {
+  return request.post('/order/' + orderNo + '/refund', data)
+}
+
+// 物流轨迹
+function getLogistics(orderNo) {
+  return request.get('/logistics/' + orderNo)
+}
+
+// ---------- 管理端 ----------
+
+// 后台订单分页
+function selectManageOrderByPage(data) {
+  return request.get('/order/manage', { params: data })
+}
+
+// 后台订单详情
+function getManageOrderDetail(orderNo) {
+  return request.get('/order/manage/' + orderNo)
+}
+
+// 发货
+function shipOrder(orderNo, data) {
+  return request.post('/order/' + orderNo + '/ship', data)
+}
+
+// 审核退款
+function auditRefund(refundId, data) {
+  return request.put('/order/refund/' + refundId + '/audit', data)
+}
+
 export default {
   createOrder,
   payOrder,
   payCallback,
   getOrderStatus,
-  selectMyOrderByPage
+  selectMyOrderByPage,
+  getOrderDetail,
+  cancelOrder,
+  receiveOrder,
+  applyRefund,
+  getLogistics,
+  selectManageOrderByPage,
+  getManageOrderDetail,
+  shipOrder,
+  auditRefund
 }

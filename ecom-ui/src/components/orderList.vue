@@ -34,6 +34,7 @@
         <div class="order-foot">
           <span>共 {{ totalQty(vo) }} 件，实付：<span class="pay-amount">¥{{ vo.order.payAmount }}</span></span>
           <div>
+            <el-button size="small" @click="$router.push('/order/detail?orderNo=' + vo.order.orderNo)">查看详情</el-button>
             <el-button
               v-if="vo.order.status === 0"
               type="danger"
