@@ -15,6 +15,13 @@
       </el-descriptions>
     </el-card>
 
+    <el-card shadow="never" class="alert-card" v-if="canSeeAlert && alertCount > 0">
+      <div class="alert-row">
+        <span>库存预警：有 <b class="alert-num">{{ alertCount }}</b> 条未处理，请及时查看</span>
+        <el-button type="warning" size="small" @click="$router.push('/stock/alert')">去处理</el-button>
+      </div>
+    </el-card>
+
     <el-card shadow="never" class="tips-card">
       <template #header>系统模块</template>
       <el-row :gutter="12">
@@ -30,8 +37,9 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import useInfo from '@/store/userInfo'
+import stockHttp from '@/api/stockHttp'
 
 const userStore = useInfo()
 const user = computed(() => userStore.userInfo.user || {})
@@ -41,14 +49,31 @@ const loginTime = new Date().toLocaleString()
 
 const modules = [
   { name: '鉴权与权限', desc: '已完成（P1）' },
-  { name: '商品管理', desc: '待开发（P2）' },
-  { name: '交易闭环', desc: '待开发（P3）' },
-  { name: '订单售后', desc: '待开发（P4）' },
-  { name: '智能供应链', desc: '待开发（P5）' },
+  { name: '商品管理', desc: '已完成（P2）' },
+  { name: '交易闭环', desc: '已完成（P3）' },
+  { name: '订单售后', desc: '已完成（P4）' },
+  { name: '智能供应链', desc: '已完成（P5）' },
   { name: '数据看板', desc: '待开发（P6）' },
   { name: '智能客服与搜索', desc: '待开发（P7）' },
   { name: '联调部署', desc: '待开发（P8）' }
 ]
+
+const alertCount = ref(0)
+const canSeeAlert = computed(() => {
+  const roles = userStore.userInfo.roles || []
+  const perms = userStore.userInfo.permissions || []
+  return roles.includes('super_admin') || perms.includes('stock:alert')
+})
+
+onMounted(async () => {
+  if (!canSeeAlert.value) return
+  try {
+    const res = await stockHttp.getUnhandledCount()
+    alertCount.value = res.data || 0
+  } catch (e) {
+    alertCount.value = 0
+  }
+})
 </script>
 
 <style scoped>
@@ -63,6 +88,22 @@ const modules = [
 
 .tips-card {
   margin-top: 16px;
+}
+
+.alert-card {
+  margin-top: 16px;
+  border-left: 4px solid #e6a23c;
+}
+
+.alert-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.alert-num {
+  color: #e6a23c;
+  font-size: 18px;
 }
 
 .mod-item {
