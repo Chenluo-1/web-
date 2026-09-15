@@ -81,7 +81,10 @@ const send = async () => {
       transfer: d.transfer
     })
   } catch (e) {
-    messages.value.push({ role: 'bot', text: '服务暂时不可用，请稍后再试' })
+    messages.value.push({
+      role: 'bot',
+      text: '服务暂时不可用，请稍后再试（' + ((e && e.message) || '未知错误') + '）'
+    })
   } finally {
     asking.value = false
     scrollBottom()
