@@ -26,13 +26,15 @@ spring:
     pathmatch:
       matching-strategy: ant_path_matcher
 
+jwt:
+  # JWT 签名密钥（正式部署请更换为随机串）
+  key: ecom
+
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
   type-aliases-package: cn.ecom.domain.pojo
   configuration:
     map-underscore-to-camel-case: true
-    # 开发期打印 SQL（P8 收尾时移除）
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
   global-config:
     banner: false
     db-config:

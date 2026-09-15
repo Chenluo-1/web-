@@ -2,9 +2,11 @@ package cn.ecom.service.impl;
 
 import cn.ecom.domain.dto.PasswordDto;
 import cn.ecom.domain.dto.UserDto;
+import cn.ecom.domain.pojo.Role;
 import cn.ecom.domain.pojo.User;
 import cn.ecom.domain.pojo.UserRole;
 import cn.ecom.handler.exception.BusinessException;
+import cn.ecom.mapper.RoleMapper;
 import cn.ecom.mapper.UserMapper;
 import cn.ecom.mapper.UserRoleMapper;
 import cn.ecom.service.UserService;
@@ -32,10 +34,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     private final PasswordEncoder passwordEncoder;
     private final UserRoleMapper userRoleMapper;
+    private final RoleMapper roleMapper;
 
-    public UserServiceImpl(PasswordEncoder passwordEncoder, UserRoleMapper userRoleMapper) {
+    public UserServiceImpl(PasswordEncoder passwordEncoder, UserRoleMapper userRoleMapper, RoleMapper roleMapper) {
         this.passwordEncoder = passwordEncoder;
         this.userRoleMapper = userRoleMapper;
+        this.roleMapper = roleMapper;
     }
 
     @Override
@@ -84,6 +88,41 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         userDto.setId(null);
         save(userDto);
         saveUserRoles(userDto.getId(), userDto.getRoleIds());
+    }
+
+    @Override
+    @Transactional
+    public void register(User user) {
+        if (!StringUtils.hasText(user.getUsername())
+                || !user.getUsername().matches("^[a-zA-Z0-9_]{4,20}$")) {
+            throw new BusinessException(AppHttpCodeEnum.PARAMETER_ERROR, "用户名需为 4-20 位字母、数字或下划线");
+        }
+        if (!StringUtils.hasText(user.getPassword()) || user.getPassword().length() < 6) {
+            throw new BusinessException(AppHttpCodeEnum.PARAMETER_ERROR, "密码至少 6 位");
+        }
+        Integer count = lambdaQuery().eq(User::getUsername, user.getUsername()).count();
+        if (count != null && count > 0) {
+            throw new BusinessException(AppHttpCodeEnum.USERNAME_EXIST);
+        }
+        Role memberRole = roleMapper.selectOne(new LambdaQueryWrapper<Role>().eq(Role::getRoleKey, "member"));
+        if (memberRole == null) {
+            throw new BusinessException(AppHttpCodeEnum.SYSTEM_ERROR, "消费者角色未初始化");
+        }
+
+        User entity = new User();
+        entity.setUsername(user.getUsername());
+        entity.setNickName(StringUtils.hasText(user.getNickName()) ? user.getNickName() : user.getUsername());
+        entity.setPassword(passwordEncoder.encode(user.getPassword()));
+        entity.setUserType(1);
+        entity.setPhone(user.getPhone());
+        entity.setEmail(user.getEmail());
+        entity.setStatus(0);
+        save(entity);
+
+        UserRole userRole = new UserRole();
+        userRole.setUserId(entity.getId());
+        userRole.setRoleId(memberRole.getId());
+        userRoleMapper.insert(userRole);
     }
 
     @Override

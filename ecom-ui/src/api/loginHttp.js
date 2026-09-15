@@ -5,6 +5,11 @@ function login(data) {
   return request.post('/login', data)
 }
 
+// 消费者注册
+function register(data) {
+  return request.post('/register', data)
+}
+
 // 退出登录
 function logout() {
   return request.get('/logout')
@@ -22,6 +27,7 @@ function getRoutes() {
 
 export default {
   login,
+  register,
   logout,
   getInfo,
   getRoutes

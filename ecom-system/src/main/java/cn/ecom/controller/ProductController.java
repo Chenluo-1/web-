@@ -2,10 +2,12 @@ package cn.ecom.controller;
 
 import cn.ecom.annotation.OperLog;
 import cn.ecom.domain.dto.ProductDto;
+import cn.ecom.domain.pojo.LoginUser;
 import cn.ecom.domain.pojo.Product;
 import cn.ecom.domain.vo.ProductDetailVo;
 import cn.ecom.service.ProductService;
 import cn.ecom.utils.ResponseResult;
+import cn.ecom.utils.SecurityUtils;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -33,10 +35,13 @@ public class ProductController {
         this.productService = productService;
     }
 
-    /** 分页查询 */
+    /** 分页查询（游客未指定状态时只返回已上架商品） */
     @GetMapping
     public ResponseResult<Page<Product>> selectByPage(Integer pageNum, Integer pageSize,
                                                       String title, Long categoryId, Integer status) {
+        if (status == null && !(SecurityUtils.getAuthentication().getPrincipal() instanceof LoginUser)) {
+            status = 1;
+        }
         return ResponseResult.okResult(productService.selectProductByPage(pageNum, pageSize, title, categoryId, status));
     }
 

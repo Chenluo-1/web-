@@ -5,6 +5,7 @@ import cn.ecom.handler.security.AccessDeniedHandlerImpl;
 import cn.ecom.handler.security.AuthenticationEntryPointImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
+import org.springframework.http.HttpMethod;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
@@ -55,8 +56,8 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 .and()
                 .authorizeRequests()
-                // 登录接口允许匿名（已登录用户重新登录也放行）
-                .antMatchers("/login").permitAll()
+                // 登录/注册接口允许匿名（已登录用户重新登录也放行）
+                .antMatchers("/login", "/register").permitAll()
                 .antMatchers("/health").permitAll()
                 // swagger 放行
                 .antMatchers("/v2/api-docs", "/swagger-resources/**", "/swagger-ui.html",
@@ -64,9 +65,12 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 // 登录态相关与系统管理接口必须登录
                 .antMatchers("/behavior/report").permitAll()
                 .antMatchers("/search/**").permitAll()
+                // 游客浏览：商品列表/详情、商品评价只读（写操作仍走 @PreAuthorize 与登录校验）
+                .antMatchers(HttpMethod.GET, "/product", "/product/*").permitAll()
+                .antMatchers(HttpMethod.GET, "/review/product/**").permitAll()
                 .antMatchers("/getInfo", "/getRouters", "/logout", "/sys/**", "/product/**", "/file/**",
                         "/cart/**", "/address/**", "/order/**", "/coupon/**", "/logistics/**", "/stock/**", "/dashboard/**",
-                        "/chat/**", "/knowledge/**").authenticated()
+                        "/chat/**", "/knowledge/**", "/review/**").authenticated()
                 .anyRequest().permitAll();
 
         http.exceptionHandling()

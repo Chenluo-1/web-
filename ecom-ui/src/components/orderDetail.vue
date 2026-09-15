@@ -55,6 +55,12 @@
         <el-table-column label="小计" width="110">
           <template #default="{ row }">¥{{ row.subtotal }}</template>
         </el-table-column>
+        <el-table-column v-if="!isManage && detail.order.status === 3" label="评价" width="90">
+          <template #default="{ row }">
+            <el-tag v-if="reviewedIds.includes(row.id)" type="info" size="small">已评价</el-tag>
+            <el-button v-else size="small" type="primary" plain @click="openReview(row)">评价</el-button>
+          </template>
+        </el-table-column>
       </el-table>
 
       <el-row :gutter="16" class="track-area">
@@ -124,6 +130,30 @@
         <el-button type="primary" @click="submitRefund">提交申请</el-button>
       </template>
     </el-dialog>
+
+    <!-- 商品评价（简化版：星级 + 文字） -->
+    <el-dialog v-model="reviewVisible" title="商品评价" width="440px">
+      <div class="rv-product">{{ reviewForm.productName }}</div>
+      <el-form label-width="60px">
+        <el-form-item label="评分">
+          <el-rate v-model="reviewForm.rating" />
+        </el-form-item>
+        <el-form-item label="评价">
+          <el-input
+            v-model="reviewForm.content"
+            type="textarea"
+            :rows="4"
+            maxlength="500"
+            show-word-limit
+            placeholder="说说使用感受，帮助其他买家参考"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="reviewVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitReview">提交评价</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -132,6 +162,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import orderHttp from '@/api/orderHttp'
+import reviewHttp from '@/api/reviewHttp'
 
 const route = useRoute()
 const detail = ref(null)
@@ -142,6 +173,44 @@ const loadDetail = async () => {
     ? await orderHttp.getManageOrderDetail(route.query.orderNo)
     : await orderHttp.getOrderDetail(route.query.orderNo)
   detail.value = res.data
+  loadReviewed()
+}
+
+// ---------- 评价（简化版） ----------
+const reviewedIds = ref([])
+const reviewVisible = ref(false)
+const reviewForm = reactive({ orderItemId: null, productName: '', rating: 5, content: '' })
+
+const loadReviewed = async () => {
+  if (isManage || !detail.value || detail.value.order.status !== 3) {
+    reviewedIds.value = []
+    return
+  }
+  try {
+    const res = await reviewHttp.selectMyByOrder(detail.value.order.orderNo)
+    reviewedIds.value = (res.data || []).map(r => r.orderItemId)
+  } catch (e) {
+    reviewedIds.value = []
+  }
+}
+
+const openReview = row => {
+  reviewForm.orderItemId = row.id
+  reviewForm.productName = row.productName
+  reviewForm.rating = 5
+  reviewForm.content = ''
+  reviewVisible.value = true
+}
+
+const submitReview = async () => {
+  await reviewHttp.addReview({
+    orderItemId: reviewForm.orderItemId,
+    rating: reviewForm.rating,
+    content: reviewForm.content
+  })
+  ElMessage.success('评价成功，感谢您的反馈')
+  reviewVisible.value = false
+  loadReviewed()
 }
 
 const traceList = computed(() => {
@@ -280,5 +349,12 @@ onMounted(loadDetail)
 
 .refund-info {
   margin-top: 8px;
+}
+
+.rv-product {
+  color: #606266;
+  font-size: 13px;
+  margin-bottom: 12px;
+  padding-left: 4px;
 }
 </style>

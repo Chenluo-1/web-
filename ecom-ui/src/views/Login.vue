@@ -15,8 +15,33 @@
         <el-button type="primary" class="login-btn" size="large" :loading="loading" @click="handleLogin">
           登 录
         </el-button>
+        <div class="reg-line">
+          还没有账号？<el-link type="primary" :underline="false" @click="openRegister">消费者注册</el-link>
+        </div>
       </el-form>
     </el-card>
+
+    <!-- 消费者注册 -->
+    <el-dialog v-model="regVisible" title="消费者注册" width="420px">
+      <el-form ref="regFormRef" :model="regForm" :rules="regRules" label-width="80px">
+        <el-form-item label="用户名" prop="username">
+          <el-input v-model="regForm.username" placeholder="4-20 位字母、数字或下划线" />
+        </el-form-item>
+        <el-form-item label="昵称" prop="nickName">
+          <el-input v-model="regForm.nickName" placeholder="选填，默认同用户名" maxlength="20" />
+        </el-form-item>
+        <el-form-item label="密码" prop="password">
+          <el-input v-model="regForm.password" type="password" show-password placeholder="至少 6 位" />
+        </el-form-item>
+        <el-form-item label="确认密码" prop="confirmPassword">
+          <el-input v-model="regForm.confirmPassword" type="password" show-password placeholder="再次输入密码" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="regVisible = false">取消</el-button>
+        <el-button type="primary" :loading="regLoading" @click="submitRegister">注册</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -58,6 +83,65 @@ const handleLogin = () => {
     }
   })
 }
+
+// ---------- 消费者注册 ----------
+const regVisible = ref(false)
+const regLoading = ref(false)
+const regFormRef = ref(null)
+const regForm = reactive({ username: '', nickName: '', password: '', confirmPassword: '' })
+const regRules = {
+  username: [
+    { required: true, message: '用户名不能为空', trigger: 'blur' },
+    { pattern: /^[a-zA-Z0-9_]{4,20}$/, message: '4-20 位字母、数字或下划线', trigger: 'blur' }
+  ],
+  password: [
+    { required: true, message: '密码不能为空', trigger: 'blur' },
+    { min: 6, message: '密码至少 6 位', trigger: 'blur' }
+  ],
+  confirmPassword: [
+    { required: true, message: '请再次输入密码', trigger: 'blur' },
+    {
+      validator: (rule, value, callback) => {
+        if (value !== regForm.password) {
+          callback(new Error('两次输入的密码不一致'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur'
+    }
+  ]
+}
+
+const openRegister = () => {
+  regForm.username = ''
+  regForm.nickName = ''
+  regForm.password = ''
+  regForm.confirmPassword = ''
+  regVisible.value = true
+}
+
+const submitRegister = () => {
+  regFormRef.value.validate(async valid => {
+    if (!valid) {
+      return
+    }
+    regLoading.value = true
+    try {
+      await loginHttp.register({
+        username: regForm.username,
+        nickName: regForm.nickName,
+        password: regForm.password
+      })
+      ElNotification.success({ title: '注册成功', message: '请使用新账号登录' })
+      loginForm.username = regForm.username
+      loginForm.password = ''
+      regVisible.value = false
+    } finally {
+      regLoading.value = false
+    }
+  })
+}
 </script>
 
 <style scoped>
@@ -89,5 +173,12 @@ const handleLogin = () => {
 
 .login-btn {
   width: 100%;
+}
+
+.reg-line {
+  margin-top: 12px;
+  text-align: center;
+  color: #909399;
+  font-size: 13px;
 }
 </style>

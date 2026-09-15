@@ -18,8 +18,15 @@ public class JwtUtil {
 
     /** 有效期 24 小时 */
     public static final Long JWT_TTL = 24 * 60 * 60 * 1000L;
-    /** 密钥明文（Base64 可解码字符串） */
-    public static final String JWT_KEY = "ecom";
+    /** 密钥明文（Base64 可解码字符串），启动时由 JwtKeyConfig 从 application.yml 的 jwt.key 注入 */
+    private static String JWT_KEY = "ecom";
+
+    /** 由 Spring 启动阶段注入配置密钥 */
+    public static void setJwtKey(String key) {
+        if (key != null && !key.trim().isEmpty()) {
+            JWT_KEY = key;
+        }
+    }
 
     public static String getUUID() {
         return UUID.randomUUID().toString().replaceAll("-", "");

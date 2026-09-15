@@ -20,6 +20,9 @@ public interface UserService extends IService<User> {
     /** 新增用户（默认密码 123456），并分配角色 */
     void addUser(UserDto userDto);
 
+    /** 消费者自助注册（固定 user_type=1，自动绑定 member 角色） */
+    void register(User user);
+
     /** 修改用户（不含密码），并重分配角色 */
     void updateUser(UserDto userDto);
 

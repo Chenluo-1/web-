@@ -53,6 +53,22 @@
         <div class="qty">
           数量：<el-input-number v-model="quantity" :min="1" :max="matchedSku ? matchedSku.stock : 1" />
         </div>
+
+        <div class="review-block">
+          <div class="rv-head">
+            <span>商品评价（{{ reviews.total }}）</span>
+            <el-rate :model-value="reviewAvg" disabled show-score text-color="#ff9900" size="small" />
+          </div>
+          <div v-for="r in reviews.records" :key="r.id" class="rv-row">
+            <div class="rv-top">
+              <span class="rv-user">{{ r.nickName || '匿名用户' }}</span>
+              <el-rate :model-value="r.rating" disabled size="small" />
+              <span class="rv-time">{{ formatDate(r.createTime) }}</span>
+            </div>
+            <div class="rv-content">{{ r.content || '此用户没有填写评价内容' }}</div>
+          </div>
+          <div v-if="!reviews.records.length" class="rv-empty">暂无评价</div>
+        </div>
       </template>
       <template #footer>
         <el-button @click="skuVisible = false">取消</el-button>
@@ -81,6 +97,7 @@ import productHttp from '@/api/productHttp'
 import cartHttp from '@/api/cartHttp'
 import couponHttp from '@/api/couponHttp'
 import behaviorHttp from '@/api/behaviorHttp'
+import reviewHttp from '@/api/reviewHttp'
 import SearchBar from '@/components/searchBar.vue'
 
 const loading = ref(false)
@@ -125,8 +142,30 @@ const reportClick = id => {
   behaviorHttp.report({ eventType: 'click', targetType: 'product', targetId: id }).catch(() => {})
 }
 
+// ---------- 商品评价（简化版：均分 + 最新 3 条） ----------
+const reviews = reactive({ total: 0, records: [] })
+const reviewAvg = ref(0)
+
+const loadReviews = async id => {
+  reviews.total = 0
+  reviews.records = []
+  reviewAvg.value = 0
+  try {
+    const [page, avg] = await Promise.all([
+      reviewHttp.selectByProduct(id, { pageNum: 1, pageSize: 3 }),
+      reviewHttp.selectAvgRating(id)
+    ])
+    reviews.total = page.data.total
+    reviews.records = page.data.records
+    reviewAvg.value = avg.data
+  } catch (e) {
+    // 评价加载失败不影响加购主流程
+  }
+}
+
 const openSkuDialog = async item => {
   behaviorHttp.report({ eventType: 'expose', targetType: 'product', targetId: item.id }).catch(() => {})
+  loadReviews(item.id)
   const res = await productHttp.getProductById(item.id)
   const d = res.data
   currentProduct.value = {
@@ -270,5 +309,55 @@ onMounted(loadPage)
   color: #909399;
   font-size: 12px;
   margin-top: 4px;
+}
+
+.review-block {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px dashed #ebeef5;
+}
+
+.rv-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: bold;
+  color: #303133;
+  margin-bottom: 6px;
+}
+
+.rv-row {
+  padding: 6px 0;
+  border-bottom: 1px dashed #f5f7fa;
+}
+
+.rv-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rv-user {
+  color: #409eff;
+  font-size: 13px;
+}
+
+.rv-time {
+  color: #c0c4cc;
+  font-size: 12px;
+  margin-left: auto;
+}
+
+.rv-content {
+  color: #606266;
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+.rv-empty {
+  color: #c0c4cc;
+  font-size: 13px;
+  text-align: center;
+  padding: 6px 0;
 }
 </style>

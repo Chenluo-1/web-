@@ -37,6 +37,7 @@ public enum AppHttpCodeEnum {
     REPEAT_SUBMIT(3005, "请勿重复提交"),
     COUPON_INVALID(3006, "优惠券不可用"),
     COUPON_RECEIVED_LIMIT(3007, "已达到领取上限"),
+    REVIEW_REPEAT(3008, "该商品已评价，不能重复评价"),
 
     FILE_UPLOAD_ERROR(4001, "文件上传失败");
 
