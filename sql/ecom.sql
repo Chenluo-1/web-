@@ -827,3 +827,18 @@ INSERT IGNORE INTO `sys_menu` (`id`, `parent_id`, `name`, `menu_type`, `url_path
 INSERT IGNORE INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES
 (1, 600),(1, 601),(1, 602),
 (2, 600),(2, 601),(2, 602);
+
+-- ============================================================
+-- P5 智能供应链菜单（增量）：库存预警 / 销量预测（挂在商品管理下）
+-- ============================================================
+INSERT IGNORE INTO `sys_menu` (`id`, `parent_id`, `name`, `menu_type`, `url_path`, `component`, `permit`, `icon`, `order_num`, `visible`, `status`) VALUES
+(310, 3,   '库存预警',   'C', '/stock/alert',      'stockAlert',    'stock:alert',           NULL, 12, 0, 0),
+(311, 3,   '销量预测',   'C', '/stock/forecast',   'salesForecast', 'stock:forecast',        NULL, 13, 0, 0),
+(312, 310, '立即扫描',   'F', '/stock/alert/scan', 'stockAlertScan',   'stock:alert:scan',     NULL, 0, 1, 0),
+(313, 310, '标记已处理', 'F', '/stock/alert/handle', 'stockAlertHandle', 'stock:alert:handle', NULL, 0, 1, 0),
+(314, 311, '生成预测',   'F', '/stock/forecast/generate', 'stockForecastGenerate', 'stock:forecast:generate', NULL, 0, 1, 0);
+
+-- 超管 + 商品运营
+INSERT IGNORE INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES
+(1, 310),(1, 311),(1, 312),(1, 313),(1, 314),
+(2, 310),(2, 311),(2, 312),(2, 313),(2, 314);
