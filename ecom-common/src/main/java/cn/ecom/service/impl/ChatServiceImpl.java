@@ -27,12 +27,10 @@ import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * 智能客服（四层分流）：
@@ -97,7 +95,10 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
             source = "transfer";
         } else if (isOrderQuery(question)) {
             // 第二层：订单查询（按登录用户匹配真实订单，固定精简格式直出，不经过大模型）
-            String orderData = buildOrderData(userId, isLogisticsQuery(question));
+            Integer nth = parseOrderPosition(question);
+            String orderData = nth != null
+                    ? buildNthOrder(userId, nth)
+                    : buildOrderData(userId, isLogisticsQuery(question));
             reply = StringUtils.hasText(orderData) ? orderData.trim() : "您暂无订单记录，去商城逛逛吧～";
             transfer = false;
             source = "order";
@@ -171,11 +172,86 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
                 return true;
             }
         }
+        // 位置指代追问（我要最近的一单 / 第2单呢 / 第一个订单）
+        if (parseOrderPosition(question) != null
+                && (question.contains("单") || question.contains("笔") || question.contains("订单"))) {
+            return true;
+        }
         // 组合规则：出现「我/查/看」+「订单/下单/购买」视为查自己的订单
         boolean mine = question.contains("我") || question.contains("查") || question.contains("看");
         boolean aboutOrder = question.contains("订单") || question.contains("下单")
                 || question.contains("购买") || question.contains("买过");
         return mine && aboutOrder;
+    }
+
+    // ---------- 订单位置指代（追问「最近一单/第 N 单」） ----------
+
+    private static final java.util.Map<Character, Integer> CN_NUM = new java.util.HashMap<>();
+
+    static {
+        String cn = "一二两三四五六七八九";
+        for (int i = 0; i < cn.length(); i++) {
+            CN_NUM.put(cn.charAt(i), i + 1);
+        }
+        CN_NUM.put('十', 10);
+        for (char c = '1'; c <= '9'; c++) {
+            CN_NUM.put(c, c - '0');
+        }
+    }
+
+    private static final java.util.regex.Pattern POS_NTH = java.util.regex.Pattern.compile(
+            "第([一二两三四五六七八九十]{1,3}|\\d{1,2})|([一二两三四五六七八九1-9])\\s*[单笔]");
+
+    /** 位置指代 → 第几笔（列表按最新排序，最近/最新/最后/上一 视为第 1 笔）；无指代返回 null */
+    private Integer parseOrderPosition(String question) {
+        if (question.contains("最近") || question.contains("最新")
+                || question.contains("最后") || question.contains("上一")) {
+            return 1;
+        }
+        java.util.regex.Matcher m = POS_NTH.matcher(question);
+        if (m.find()) {
+            if (m.group(1) != null) {
+                return cnNum(m.group(1));
+            }
+            return CN_NUM.get(m.group(2).charAt(0));
+        }
+        return null;
+    }
+
+    /** 中文/阿拉伯数字解析：十=10、十一=11、二十=20、二十一=21、\"3\"=3 */
+    private Integer cnNum(String s) {
+        if (s.matches("\\d+")) {
+            try {
+                return Integer.parseInt(s);
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        if (s.length() == 1) {
+            return CN_NUM.get(s.charAt(0));
+        }
+        int idx = s.indexOf('十');
+        if (idx == 0) {
+            return 10 + CN_NUM.getOrDefault(s.charAt(1), 0);
+        }
+        int tens = CN_NUM.getOrDefault(s.charAt(0), 0) * 10;
+        return s.length() == 2 ? tens : tens + CN_NUM.getOrDefault(s.charAt(2), 0);
+    }
+
+    /** 追问单笔订单：第 nth 笔（1=最近一笔）；不足时提示并附全列表 */
+    private String buildNthOrder(Long userId, int nth) {
+        List<Order> orders = orderMapper.selectList(new LambdaQueryWrapper<Order>()
+                .eq(Order::getUserId, userId)
+                .orderByDesc(Order::getId)
+                .last("LIMIT " + nth));
+        if (orders.isEmpty()) {
+            return "您暂无订单记录，去商城逛逛吧～";
+        }
+        if (orders.size() < nth) {
+            return "您目前只有 " + orders.size() + " 笔订单（没有第 " + nth + " 笔哦）～以下是您最近的订单：\n"
+                    + buildOrderData(userId, false);
+        }
+        return buildOrderLine(orders.get(nth - 1));
     }
 
     /** 明确要求转人工的问法（直接进入转人工，不让大模型"假装"转接） */
@@ -218,24 +294,26 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
             // 物流视角无记录时退回全量最近订单
             return logisticsFocus ? buildOrderData(userId, false) : "";
         }
-        List<Long> orderIds = orders.stream().map(Order::getId).collect(Collectors.toList());
-        Map<Long, List<OrderItem>> itemMap = orderItemMapper.selectList(
-                        new LambdaQueryWrapper<OrderItem>().in(OrderItem::getOrderId, orderIds))
-                .stream().collect(Collectors.groupingBy(OrderItem::getOrderId));
-
         StringBuilder sb = new StringBuilder();
         for (Order order : orders) {
-            List<OrderItem> items = itemMap.getOrDefault(order.getId(), Collections.emptyList());
-            sb.append("订单：").append(order.getOrderNo())
-                    .append(' ').append(statusName(order.getStatus()))
-                    .append(" ¥").append(order.getPayAmount());
-            if (!items.isEmpty()) {
-                sb.append(' ').append(items.get(0).getProductName());
-                if (items.size() > 1) {
-                    sb.append(" 等").append(items.size()).append("件");
-                }
+            sb.append(buildOrderLine(order)).append('\n');
+        }
+        return sb.toString();
+    }
+
+    /** 单笔订单行：订单：单号 状态 ¥金额 商品 */
+    private String buildOrderLine(Order order) {
+        List<OrderItem> items = orderItemMapper.selectList(new LambdaQueryWrapper<OrderItem>()
+                .eq(OrderItem::getOrderId, order.getId()));
+        StringBuilder sb = new StringBuilder();
+        sb.append("订单：").append(order.getOrderNo())
+                .append(' ').append(statusName(order.getStatus()))
+                .append(" ¥").append(order.getPayAmount());
+        if (!items.isEmpty()) {
+            sb.append(' ').append(items.get(0).getProductName());
+            if (items.size() > 1) {
+                sb.append(" 等").append(items.size()).append("件");
             }
-            sb.append('\n');
         }
         return sb.toString();
     }
