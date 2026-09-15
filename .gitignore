@@ -1,0 +1,26 @@
+# --- Java / Maven ---
+target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+
+# --- Node ---
+node_modules/
+dist/
+npm-debug.log*
+
+# --- IDE ---
+.idea/
+*.iml
+.vscode/
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- 参考项目（本地只读参考，不纳入版本库）---
+参考-seig/
+
+# --- 日志与上传 ---
+logs/
+*.log
