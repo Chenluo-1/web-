@@ -564,6 +564,7 @@ CREATE TABLE `ec_chat_log` (
   `answer` varchar(1000) DEFAULT NULL COMMENT '机器人回答',
   `confidence` decimal(5,2) DEFAULT NULL COMMENT '匹配置信度(0-1)',
   `is_transfer` tinyint NOT NULL DEFAULT 0 COMMENT '是否转人工(0否 1是)',
+  `source` varchar(10) DEFAULT NULL COMMENT '回答来源(rule规则/llm大模型/transfer转人工)',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `del_flag` tinyint NOT NULL DEFAULT 0 COMMENT '删除标志(0正常 1删除)',
@@ -713,6 +714,7 @@ INSERT INTO `ec_sys_config` (`config_key`, `config_name`, `config_value`, `remar
 ('forecast_weight_mid',       '预测权重-8到30天',    '0.3', '加权移动平均权重'),
 ('forecast_weight_old',       '预测权重-31到90天',   '0.2', '加权移动平均权重'),
 ('chat_confidence_threshold', '客服自动回复置信度',   '0.85','低于该值转人工'),
+('chat_llm_enabled',          '客服大模型兜底开关',   '1',   '1开启(DeepSeek R1 兜底) 0关闭(转人工)'),
 ('refund_stock_rollback',     '退款是否回滚库存',     '1',   '1=回滚 0=不回滚');
 
 -- 5) 演示优惠券（便于 P3 联调）

@@ -1,5 +1,6 @@
 package cn.ecom.service.impl;
 
+import cn.ecom.config.DeepSeekClient;
 import cn.ecom.domain.pojo.ChatLog;
 import cn.ecom.domain.pojo.Knowledge;
 import cn.ecom.domain.vo.ChatReplyVo;
@@ -39,10 +40,13 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
 
     private final KnowledgeMapper knowledgeMapper;
     private final SysConfigService sysConfigService;
+    private final DeepSeekClient deepSeekClient;
 
-    public ChatServiceImpl(KnowledgeMapper knowledgeMapper, SysConfigService sysConfigService) {
+    public ChatServiceImpl(KnowledgeMapper knowledgeMapper, SysConfigService sysConfigService,
+                           DeepSeekClient deepSeekClient) {
         this.knowledgeMapper = knowledgeMapper;
         this.sysConfigService = sysConfigService;
+        this.deepSeekClient = deepSeekClient;
     }
 
     @Override
@@ -60,23 +64,73 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
                 best = knowledge;
             }
         }
-        boolean transfer = best == null || bestScore < threshold;
+
+        String reply;
+        boolean transfer;
+        String source;
+        String matchedQuestion = null;
         BigDecimal confidence = BigDecimal.valueOf(bestScore).setScale(2, RoundingMode.HALF_UP);
+
+        if (best != null && bestScore >= threshold) {
+            // 第一层：知识库规则命中
+            reply = best.getAnswer();
+            transfer = false;
+            source = "rule";
+            matchedQuestion = best.getQuestion();
+        } else {
+            // 第二层：大模型兜底（开关关闭/未配密钥/调用失败 → null）
+            String llmReply = llmReply(question);
+            if (StringUtils.hasText(llmReply)) {
+                reply = llmReply;
+                transfer = false;
+                source = "llm";
+                confidence = null;
+            } else {
+                // 第三层：转人工（进入待补充闭环）
+                reply = TRANSFER_REPLY;
+                transfer = true;
+                source = "transfer";
+            }
+        }
 
         Long userId = SecurityUtils.getUserId();
         save(new ChatLog()
                 .setUserId(userId)
                 .setQuestion(question)
-                .setAnswer(transfer ? TRANSFER_REPLY : best.getAnswer())
+                .setAnswer(reply)
                 .setConfidence(confidence)
-                .setIsTransfer(transfer ? 1 : 0));
+                .setIsTransfer(transfer ? 1 : 0)
+                .setSource(source));
 
         ChatReplyVo vo = new ChatReplyVo();
-        vo.setReply(transfer ? TRANSFER_REPLY : best.getAnswer());
+        vo.setReply(reply);
         vo.setConfidence(confidence);
         vo.setTransfer(transfer);
-        vo.setMatchedQuestion(transfer || best == null ? null : best.getQuestion());
+        vo.setMatchedQuestion(matchedQuestion);
+        vo.setSource(source);
         return vo;
+    }
+
+    /** 大模型兜底回复；chat_llm_enabled=0 或调用失败时返回 null */
+    private String llmReply(String question) {
+        if (!"1".equals(sysConfigService.getString("chat_llm_enabled", "1"))) {
+            return null;
+        }
+        return deepSeekClient.chat(buildLlmSystemPrompt(), question);
+    }
+
+    /** 组装提示词：电商客服角色约束 + 知识库条目作为参考资料（轻量 RAG） */
+    private String buildLlmSystemPrompt() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("你是电商店铺「电商智能系统」的在线客服助手。要求：")
+                .append("只用简洁友好的中文回答；围绕商品、订单、支付、物流、退换货、优惠券等售前售后问题作答；")
+                .append("店铺没有的信息不要编造，不确定时礼貌说明并建议转人工客服。\n")
+                .append("以下为本店知识库资料，与用户问题相关时优先按资料回答：\n");
+        for (Knowledge knowledge : activeKnowledges()) {
+            sb.append("【问】").append(knowledge.getQuestion()).append('\n')
+                    .append("【答】").append(knowledge.getAnswer()).append('\n');
+        }
+        return sb.toString();
     }
 
     @Override

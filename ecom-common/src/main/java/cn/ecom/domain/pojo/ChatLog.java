@@ -39,6 +39,9 @@ public class ChatLog implements Serializable {
     /** 是否转人工(0否 1是) */
     private Integer isTransfer;
 
+    /** 回答来源：rule 规则命中 / llm 大模型兜底 / transfer 转人工 */
+    private String source;
+
     private Date createTime;
 
     private Date updateTime;

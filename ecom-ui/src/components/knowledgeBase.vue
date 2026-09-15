@@ -68,8 +68,16 @@
           <el-table :data="logs" border stripe v-loading="loading">
             <el-table-column prop="question" label="用户问题" min-width="180" />
             <el-table-column prop="answer" label="机器人回答" min-width="240" show-overflow-tooltip />
+            <el-table-column label="来源" width="100">
+              <template #default="{ row }">
+                <el-tag v-if="row.source === 'rule'" type="success" size="small">知识库</el-tag>
+                <el-tag v-else-if="row.source === 'llm'" type="primary" size="small">AI 回答</el-tag>
+                <el-tag v-else-if="row.source === 'transfer'" type="warning" size="small">转人工</el-tag>
+                <span v-else>-</span>
+              </template>
+            </el-table-column>
             <el-table-column label="置信度" width="90">
-              <template #default="{ row }">{{ row.confidence }}</template>
+              <template #default="{ row }">{{ row.confidence == null ? '-' : row.confidence }}</template>
             </el-table-column>
             <el-table-column label="是否转人工" width="110">
               <template #default="{ row }">

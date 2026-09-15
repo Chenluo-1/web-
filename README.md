@@ -109,6 +109,7 @@ nginx -s reload
 | 商品图片不显示 | MinIO 未启动或图片未上传（执行 sql/upload_images.py 后导入 data_images.sql） |
 | 看板趋势/排行无数据 | 先执行 data.sql（含 30 天汇总），或后端运行后调用「手动重算」 |
 | 演示数据被改乱 | 重新执行 `mysql -uroot -p123456 ecom < sql/data.sql` 即可复位 |
+| 客服没有 AI 回答（直接转人工） | 大模型兜底需要 `application.yml` 里 `deepseek.api-key`；留空或调用失败时自动降级为「转人工」。也可用 `ec_sys_config.chat_llm_enabled`（0 关 1 开）一键切换规则版/大模型版 |
 | Windows 控制台中文乱码 | 终端编码问题，不影响数据（库/页面均为 utf8mb4） |
 
 ## 文档索引

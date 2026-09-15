@@ -20,4 +20,6 @@ public class ChatReplyVo {
     private Boolean transfer;
     /** 命中的知识（可空） */
     private String matchedQuestion;
+    /** 回答来源：rule 规则命中 / llm 大模型兜底 / transfer 转人工 */
+    private String source;
 }

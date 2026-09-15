@@ -1,8 +1,9 @@
 import request from '@/util/request'
 
-// 提问（置信度 ≥ 阈值自动回复，否则转人工）
+// 提问（规则命中自动回复 → 大模型兜底 → 转人工）
+// 大模型推理耗时较长，单独放宽超时到 60 秒
 function ask(question) {
-  return request.post('/chat/ask', { question })
+  return request.post('/chat/ask', { question }, { timeout: 60000 })
 }
 
 // 会话记录

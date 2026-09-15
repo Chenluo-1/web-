@@ -19,8 +19,10 @@
         <div v-for="(m, i) in messages" :key="i" class="msg" :class="m.role">
           <div class="bubble">
             <div>{{ m.text }}</div>
-            <div v-if="m.confidence !== undefined" class="meta">
-              置信度 {{ (m.confidence * 100).toFixed(0) }}%
+            <div v-if="m.confidence !== undefined || m.source" class="meta">
+              <el-tag v-if="m.source === 'rule'" size="small" type="success">知识库</el-tag>
+              <el-tag v-else-if="m.source === 'llm'" size="small" type="primary">AI 回答</el-tag>
+              <span v-if="m.confidence !== undefined">置信度 {{ (m.confidence * 100).toFixed(0) }}%</span>
               <el-tag v-if="m.transfer" size="small" type="warning">已转人工</el-tag>
             </div>
           </div>
@@ -77,8 +79,9 @@ const send = async () => {
     messages.value.push({
       role: 'bot',
       text: d.reply,
-      confidence: Number(d.confidence),
-      transfer: d.transfer
+      confidence: d.confidence == null ? undefined : Number(d.confidence),
+      transfer: d.transfer,
+      source: d.source
     })
   } catch (e) {
     messages.value.push({

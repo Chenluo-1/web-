@@ -595,8 +595,9 @@ for q, a, conf, transfer in CHAT_SEED:
     for _ in range(random.randint(1, 4)):
         t = NOW - timedelta(days=random.randint(0, 14), hours=random.randint(0, 23))
         uid_v = random.choice(users)['id']
-        w("INSERT INTO ec_chat_log (id, user_id, question, answer, confidence, is_transfer, create_time, del_flag) VALUES "
-          "(%d, %d, '%s', '%s', %s, %d, '%s', 0);" % (cl_id, uid_v, esc(q), esc(a), conf, transfer, fmt_dt(t)))
+        src = 'transfer' if transfer else 'rule'
+        w("INSERT INTO ec_chat_log (id, user_id, question, answer, confidence, is_transfer, source, create_time, del_flag) VALUES "
+          "(%d, %d, '%s', '%s', %s, %d, '%s', '%s', 0);" % (cl_id, uid_v, esc(q), esc(a), conf, transfer, src, fmt_dt(t)))
         cl_id += 1
 
 # ---------- 12. 购物车（member1 演示） ----------

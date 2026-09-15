@@ -30,6 +30,14 @@ jwt:
   # JWT 签名密钥（正式部署请更换为随机串）
   key: ecom
 
+deepseek:
+  # 客服大模型兜底（规则未命中时调用）；密钥留空则自动降级为「转人工」
+  api-key: ''   # 本地填入自己的密钥；密钥勿提交（仓库版本保持为空）
+  base-url: https://api.deepseek.com
+  # R1 推理模型（慢但强）；想更快可换 deepseek-chat（V3）
+  model: deepseek-reasoner
+  timeout-seconds: 60
+
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
   type-aliases-package: cn.ecom.domain.pojo
