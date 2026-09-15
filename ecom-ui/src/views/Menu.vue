@@ -42,6 +42,8 @@
     </el-container>
   </el-container>
 
+  <chat-widget />
+
   <el-dialog v-model="pwdVisible" title="修改密码" width="420px">
     <el-form ref="pwdFormRef" :model="pwdForm" :rules="pwdRules" label-width="90px">
       <el-form-item label="原密码" prop="oldPassword">
@@ -64,6 +66,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import loginHttp from '@/api/loginHttp'
 import sysUserHttp from '@/api/sysUserHttp'
+import ChatWidget from '@/components/chatWidget.vue'
 import useInfo from '@/store/userInfo'
 
 const route = useRoute()

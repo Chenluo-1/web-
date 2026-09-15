@@ -2,11 +2,7 @@
   <div>
     <el-card shadow="never" class="toolbar-card">
       <div class="bar">
-        <el-input v-model="query.title" placeholder="搜索商品" clearable style="width: 260px" @keyup.enter="handleSearch">
-          <template #append>
-            <el-button @click="handleSearch">搜索</el-button>
-          </template>
-        </el-input>
+        <search-bar />
         <el-button type="warning" plain @click="openCouponDrawer">领券中心</el-button>
       </div>
     </el-card>
@@ -85,6 +81,7 @@ import productHttp from '@/api/productHttp'
 import cartHttp from '@/api/cartHttp'
 import couponHttp from '@/api/couponHttp'
 import behaviorHttp from '@/api/behaviorHttp'
+import SearchBar from '@/components/searchBar.vue'
 
 const loading = ref(false)
 const list = ref([])
