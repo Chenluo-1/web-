@@ -84,7 +84,9 @@ Web应用项目实训课程设计（CW3104）。一个面向店铺运营的电�
   构建**必须**显式指定 JDK 8）：
   - Git Bash：`JAVA_HOME="/c/Program Files/Java/jdk-1.8" mvn clean install`
   - IntelliJ IDEA：Project SDK 与 Maven Runner JRE 均设为 1.8
-- 启动顺序：MySQL(3306) → Redis(6379) → 后端 EcomApplication(8888) → 前端 `npm run serve`(8082)
+- 启动顺序：MySQL(3306) → Redis(6379) → MinIO(9000) → 后端 EcomApplication(8888) → 前端 `npm run serve`(8082)
+- MinIO 启动（P2 起需要）：`"C:\Users\奥利奥\Desktop\web实训\实验1\seig-master\seig-master\seig\minio\minio.exe" server D:\ecom\minio-data --address ":9000" --console-address ":9001"`
+  （控制台 http://localhost:9001，minioadmin/minioadmin）
 - 前端包管理走腾讯镜像（已配置）
 
 ## 文档
