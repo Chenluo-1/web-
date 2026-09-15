@@ -158,7 +158,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import orderHttp from '@/api/orderHttp'
@@ -273,6 +273,17 @@ const submitRefund = () => {
 }
 
 onMounted(loadDetail)
+
+// 同一路由切换不同订单号（如客服聊天里连点多个订单链接）时组件被复用，
+// onMounted 不会重跑，这里监听 query 变化重新加载，否则一直显示第一次打开的订单
+watch(
+  () => route.query.orderNo,
+  no => {
+    if (no) {
+      loadDetail()
+    }
+  }
+)
 </script>
 
 <style scoped>
