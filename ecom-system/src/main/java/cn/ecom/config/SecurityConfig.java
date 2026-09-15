@@ -62,8 +62,9 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 .antMatchers("/v2/api-docs", "/swagger-resources/**", "/swagger-ui.html",
                         "/webjars/**", "/doc.html", "/favicon.ico").permitAll()
                 // 登录态相关与系统管理接口必须登录
+                .antMatchers("/behavior/report").permitAll()
                 .antMatchers("/getInfo", "/getRouters", "/logout", "/sys/**", "/product/**", "/file/**",
-                        "/cart/**", "/address/**", "/order/**", "/coupon/**", "/logistics/**", "/stock/**").authenticated()
+                        "/cart/**", "/address/**", "/order/**", "/coupon/**", "/logistics/**", "/stock/**", "/dashboard/**").authenticated()
                 .anyRequest().permitAll();
 
         http.exceptionHandling()

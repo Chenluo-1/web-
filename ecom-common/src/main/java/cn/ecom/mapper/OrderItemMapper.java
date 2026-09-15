@@ -33,4 +33,13 @@ public interface OrderItemMapper extends BaseMapper<OrderItem> {
     List<Map<String, Object>> selectCategoryDailySales(@Param("categoryId") Long categoryId,
                                                        @Param("excludeSkuId") Long excludeSkuId,
                                                        @Param("since") Date since);
+
+    /** 区间支付口径的商品/SKU 销量汇总（T+1 汇总表来源） */
+    @Select("SELECT i.product_id AS productId, i.sku_id AS skuId, SUM(i.quantity) AS qty, " +
+            "SUM(i.subtotal) AS amount " +
+            "FROM ec_order_item i JOIN ec_order o ON o.order_no = i.order_no " +
+            "WHERE o.status IN (1,2,3,5) AND o.pay_time >= #{from} AND o.pay_time < #{to} " +
+            "AND o.del_flag = 0 AND i.del_flag = 0 " +
+            "GROUP BY i.product_id, i.sku_id")
+    List<Map<String, Object>> selectPaidItemSummary(@Param("from") Date from, @Param("to") Date to);
 }

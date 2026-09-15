@@ -842,3 +842,18 @@ INSERT IGNORE INTO `sys_menu` (`id`, `parent_id`, `name`, `menu_type`, `url_path
 INSERT IGNORE INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES
 (1, 310),(1, 311),(1, 312),(1, 313),(1, 314),
 (2, 310),(2, 311),(2, 312),(2, 313),(2, 314);
+
+-- ============================================================
+-- P6 数据看板菜单（增量）：看板 + 刷新统计 + 商品数据/营销数据权限
+-- ============================================================
+INSERT IGNORE INTO `sys_menu` (`id`, `parent_id`, `name`, `menu_type`, `url_path`, `component`, `permit`, `icon`, `order_num`, `visible`, `status`) VALUES
+(700, 0,   '数据看板', 'M', '/dashboard',             'dashboard',        'dashboard:view',    'iconfont icon-kanban', 8, 0, 0),
+(701, 700, '刷新统计', 'F', '/dashboard/aggregate',   'dashboardRefresh', 'dashboard:refresh', NULL, 0, 1, 0),
+(702, 700, '商品数据', 'F', '/dashboard/product',     'dashboardProduct', 'dashboard:product', NULL, 0, 1, 0),
+(703, 700, '营销数据', 'F', '/dashboard/market',      'dashboardMarket',  'dashboard:market',  NULL, 0, 1, 0);
+
+-- 超管全部；商品运营=商品数据；活动运营=营销数据
+INSERT IGNORE INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES
+(1, 700),(1, 701),(1, 702),(1, 703),
+(2, 700),(2, 702),
+(3, 700),(3, 703);

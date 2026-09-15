@@ -8,6 +8,7 @@ import cn.ecom.handler.exception.BusinessException;
 import cn.ecom.mapper.CartMapper;
 import cn.ecom.mapper.ProductMapper;
 import cn.ecom.mapper.SkuMapper;
+import cn.ecom.service.BehaviorService;
 import cn.ecom.service.CartService;
 import cn.ecom.utils.AppHttpCodeEnum;
 import cn.ecom.utils.SecurityUtils;
@@ -27,10 +28,12 @@ public class CartServiceImpl extends ServiceImpl<CartMapper, Cart> implements Ca
 
     private final SkuMapper skuMapper;
     private final ProductMapper productMapper;
+    private final BehaviorService behaviorService;
 
-    public CartServiceImpl(SkuMapper skuMapper, ProductMapper productMapper) {
+    public CartServiceImpl(SkuMapper skuMapper, ProductMapper productMapper, BehaviorService behaviorService) {
         this.skuMapper = skuMapper;
         this.productMapper = productMapper;
+        this.behaviorService = behaviorService;
     }
 
     @Override
@@ -99,6 +102,7 @@ public class CartServiceImpl extends ServiceImpl<CartMapper, Cart> implements Ca
             existing.setQuantity(targetQty);
             updateById(existing);
         }
+        behaviorService.record(userId, "cart", "sku", skuId);
     }
 
     @Override
