@@ -142,9 +142,6 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         if (category == null) {
             throw new BusinessException(AppHttpCodeEnum.PARAMETER_ERROR, "类目不存在");
         }
-        if (category.getLevel() == null || category.getLevel() != 3) {
-            throw new BusinessException(AppHttpCodeEnum.PARAMETER_ERROR, "商品必须挂到三级类目下");
-        }
         if (productDto.getSkus() == null || productDto.getSkus().isEmpty()) {
             throw new BusinessException(AppHttpCodeEnum.PARAMETER_ERROR, "至少需要一个 SKU");
         }

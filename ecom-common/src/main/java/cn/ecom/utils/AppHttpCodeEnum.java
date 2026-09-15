@@ -24,7 +24,6 @@ public enum AppHttpCodeEnum {
     ACCOUNT_DISABLED(1005, "账号已停用"),
     OLD_PASSWORD_ERROR(1006, "原密码错误"),
 
-    CATEGORY_LEVEL_LIMIT(2001, "类目最多三级"),
     CATEGORY_HAS_PRODUCT(2002, "类目下存在商品，不允许删除"),
     CATEGORY_HAS_CHILD(2003, "类目下存在子类目，不允许删除"),
     PRODUCT_NOT_EXIST(2004, "商品不存在"),

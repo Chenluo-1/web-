@@ -16,13 +16,10 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * 类目服务实现：三级树 + 删除约束
+ * 类目服务实现：多级树（不限层级）+ 删除约束
  */
 @Service("categoryService")
 public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category> implements CategoryService {
-
-    /** 类目最大层级 */
-    private static final int MAX_LEVEL = 3;
 
     private final ProductMapper productMapper;
 
@@ -61,9 +58,6 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category> i
                 throw new BusinessException(AppHttpCodeEnum.PARAMETER_ERROR, "父类目不存在");
             }
             level = (parent.getLevel() == null ? 1 : parent.getLevel()) + 1;
-        }
-        if (level > MAX_LEVEL) {
-            throw new BusinessException(AppHttpCodeEnum.CATEGORY_LEVEL_LIMIT);
         }
         category.setLevel(level);
         if (category.getSort() == null) {

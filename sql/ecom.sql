@@ -138,7 +138,7 @@ CREATE TABLE `ec_category` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
   `parent_id` bigint NOT NULL DEFAULT 0 COMMENT '父类目id(0为根)',
   `name` varchar(50) NOT NULL COMMENT '类目名称',
-  `level` tinyint NOT NULL DEFAULT 1 COMMENT '层级(1/2/3，最多三级)',
+  `level` tinyint NOT NULL DEFAULT 1 COMMENT '层级(1起，不限深度)',
   `sort` int NOT NULL DEFAULT 0 COMMENT '显示顺序',
   `icon` varchar(255) DEFAULT NULL COMMENT '类目图标',
   `status` tinyint NOT NULL DEFAULT 0 COMMENT '状态(0正常 1停用)',
@@ -156,7 +156,7 @@ DROP TABLE IF EXISTS `ec_product`;
 CREATE TABLE `ec_product` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
   `title` varchar(200) NOT NULL COMMENT '商品标题',
-  `category_id` bigint NOT NULL COMMENT '类目id(三级类目)',
+  `category_id` bigint NOT NULL COMMENT '类目id(商品所属类目)',
   `main_image` varchar(500) DEFAULT NULL COMMENT '主图URL',
   `description` text COMMENT '商品详情(富文本)',
   `status` tinyint NOT NULL DEFAULT 0 COMMENT '上下架(0下架 1上架)',

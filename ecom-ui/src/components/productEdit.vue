@@ -20,7 +20,7 @@
             :props="{ label: 'name', children: 'children' }"
             check-strictly
             clearable
-            placeholder="请选择三级类目（商品必须挂三级）"
+            placeholder="请选择商品所属类目"
             style="width: 100%"
           />
         </el-form-item>

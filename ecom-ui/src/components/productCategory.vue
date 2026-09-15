@@ -5,7 +5,7 @@
       <el-card shadow="never">
         <template #header>
           <div class="card-head">
-            <span>类目树（最多三级）</span>
+            <span>类目树（不限层级）</span>
             <el-button type="primary" size="small" v-hasPermi="'product:category:add'" @click="startAddRoot">
               新增一级类目
             </el-button>
@@ -50,7 +50,7 @@
               {{ mode === 'edit' ? '保存修改' : '确定新增' }}
             </el-button>
             <el-button
-              v-if="mode === 'edit' && current && current.level < 3"
+              v-if="mode === 'edit'"
               v-hasPermi="'product:category:add'"
               @click="startAddChild"
             >新增子类目</el-button>
@@ -105,10 +105,6 @@ const startAddRoot = () => {
 
 const startAddChild = () => {
   if (!current.value) return
-  if (current.value.level >= 3) {
-    ElMessage.warning('类目最多三级，不能在三级类目下再加')
-    return
-  }
   mode.value = 'add-child'
   Object.assign(form, { id: null, name: '', sort: 0, status: 0, parentId: current.value.id })
 }

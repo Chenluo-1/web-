@@ -104,7 +104,7 @@ D:\webxiangmu\ecom\
 
 | 表 | 用途 | 关键字段与设计点 |
 |---|---|---|
-| `ec_category` | 三级类目树 | `parent_id` / `level`(1/2/3) / `name` / `sort` / `status`；最多三级，由服务层校验 |
+| `ec_category` | 多级类目树 | `parent_id` / `level`(1起) / `name` / `sort` / `status`；**不限层级**（2026-09-15 用户要求取消三级限制），由服务层计算层级 |
 | `ec_product` | 商品 SPU | `title` / `category_id` / `main_image` / `description` / `status`(0下架 1上架) / `price_min` / `price_max`（由 SKU 汇总）/ `sales`(总销量) |
 | `ec_product_spec` | 规格维度 | `product_id` / `spec_name`(如"颜色") / `spec_values`(JSON 数组) / `sort` |
 | `ec_sku` | 规格组合 SKU（**含库存**） | `product_id` / `specs`(JSON，如 {"颜色":"红","尺码":"S"}) / `price` / `stock` / `version`(乐观锁) / `sales` / `status`；规格组合唯一 |
