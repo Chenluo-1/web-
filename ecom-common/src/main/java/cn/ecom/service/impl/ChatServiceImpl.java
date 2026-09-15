@@ -3,7 +3,6 @@ package cn.ecom.service.impl;
 import cn.ecom.config.DeepSeekClient;
 import cn.ecom.domain.pojo.ChatLog;
 import cn.ecom.domain.pojo.Knowledge;
-import cn.ecom.domain.pojo.Logistics;
 import cn.ecom.domain.pojo.Order;
 import cn.ecom.domain.pojo.OrderItem;
 import cn.ecom.domain.vo.ChatReplyVo;
@@ -11,7 +10,6 @@ import cn.ecom.domain.vo.PendingVo;
 import cn.ecom.handler.exception.BusinessException;
 import cn.ecom.mapper.ChatLogMapper;
 import cn.ecom.mapper.KnowledgeMapper;
-import cn.ecom.mapper.LogisticsMapper;
 import cn.ecom.mapper.OrderItemMapper;
 import cn.ecom.mapper.OrderMapper;
 import cn.ecom.service.ChatService;
@@ -20,7 +18,6 @@ import cn.ecom.utils.AppHttpCodeEnum;
 import cn.ecom.utils.SecurityUtils;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
-import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -29,7 +26,6 @@ import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -54,17 +50,15 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
     private final DeepSeekClient deepSeekClient;
     private final OrderMapper orderMapper;
     private final OrderItemMapper orderItemMapper;
-    private final LogisticsMapper logisticsMapper;
 
     public ChatServiceImpl(KnowledgeMapper knowledgeMapper, SysConfigService sysConfigService,
                            DeepSeekClient deepSeekClient, OrderMapper orderMapper,
-                           OrderItemMapper orderItemMapper, LogisticsMapper logisticsMapper) {
+                           OrderItemMapper orderItemMapper) {
         this.knowledgeMapper = knowledgeMapper;
         this.sysConfigService = sysConfigService;
         this.deepSeekClient = deepSeekClient;
         this.orderMapper = orderMapper;
         this.orderItemMapper = orderItemMapper;
-        this.logisticsMapper = logisticsMapper;
     }
 
     @Override
@@ -97,16 +91,9 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
             source = "rule";
             matchedQuestion = best.getQuestion();
         } else if (isOrderQuery(question)) {
-            // 第二层：订单查询（按登录用户匹配真实订单，禁止模型编造）
+            // 第二层：订单查询（按登录用户匹配真实订单，固定精简格式直出，不经过大模型）
             String orderData = buildOrderData(userId, isLogisticsQuery(question));
-            String llmReply = null;
-            if (StringUtils.hasText(orderData) && llmEnabled()) {
-                llmReply = deepSeekClient.chat(buildOrderSystemPrompt(orderData), question);
-            }
-            reply = StringUtils.hasText(llmReply) ? llmReply
-                    : (StringUtils.hasText(orderData)
-                            ? "为您查到最近订单如下：\n" + orderData + "如需完整详情，可在「我的订单」页查看对应订单。"
-                            : "您暂无订单记录，去商城逛逛吧～");
+            reply = StringUtils.hasText(orderData) ? orderData.trim() : "您暂无订单记录，去商城逛逛吧～";
             transfer = false;
             source = "order";
             confidence = null;
@@ -203,27 +190,16 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
                         new LambdaQueryWrapper<OrderItem>().in(OrderItem::getOrderId, orderIds))
                 .stream().collect(Collectors.groupingBy(OrderItem::getOrderId));
 
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm");
         StringBuilder sb = new StringBuilder();
-        int idx = 1;
         for (Order order : orders) {
             List<OrderItem> items = itemMap.getOrDefault(order.getId(), Collections.emptyList());
-            String itemSummary = "商品信息缺失";
+            sb.append("订单：").append(order.getOrderNo())
+                    .append(' ').append(statusName(order.getStatus()))
+                    .append(" ¥").append(order.getPayAmount());
             if (!items.isEmpty()) {
-                int qty = items.stream().mapToInt(OrderItem::getQuantity).sum();
-                itemSummary = items.get(0).getProductName() + (items.size() > 1 ? " 等 " + items.size() + " 件商品" : "") + " 共" + qty + "件";
-            }
-            sb.append(idx++).append(". 订单号 ").append(order.getOrderNo())
-                    .append(" ｜ ").append(itemSummary)
-                    .append(" ｜ 金额 ¥").append(order.getPayAmount())
-                    .append(" ｜ 状态 ").append(statusName(order.getStatus()))
-                    .append(" ｜ 下单时间 ").append(sdf.format(order.getCreateTime()));
-            if (order.getStatus() != null && (order.getStatus() == 2 || order.getStatus() == 3)) {
-                Logistics logistics = logisticsMapper.selectOne(new LambdaQueryWrapper<Logistics>()
-                        .eq(Logistics::getOrderNo, order.getOrderNo()));
-                String latest = latestTrace(logistics);
-                if (latest != null) {
-                    sb.append(" ｜ 物流最新：").append(latest);
+                sb.append(' ').append(items.get(0).getProductName());
+                if (items.size() > 1) {
+                    sb.append(" 等").append(items.size()).append("件");
                 }
             }
             sb.append('\n');
@@ -236,33 +212,6 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
             return "未知";
         }
         return STATUS_NAMES[status];
-    }
-
-    /** 取物流轨迹最后一条：文案(时间) */
-    private String latestTrace(Logistics logistics) {
-        if (logistics == null || !StringUtils.hasText(logistics.getTraceJson())) {
-            return null;
-        }
-        try {
-            JSONArray array = JSON.parseArray(logistics.getTraceJson());
-            if (array == null || array.isEmpty()) {
-                return null;
-            }
-            JSONObject last = array.getJSONObject(array.size() - 1);
-            return last.getString("text") + "（" + last.getString("time") + "）";
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    /** 订单查询提示词：真实数据 + 数字不可改动强约束 */
-    private String buildOrderSystemPrompt(String orderData) {
-        return "你是电商店铺「电商智能系统」的在线客服助手。用户正在询问自己的订单，"
-                + "下面【订单数据】是系统刚为该用户实时查询到的真实数据。要求："
-                + "1) 用简洁友好的中文向用户说明查询结果；"
-                + "2) 订单号、金额、时间、状态等所有内容必须与【订单数据】完全一致，严禁修改、截断或编造；"
-                + "3) 数据中没有的信息不要补充；用户问的订单不在数据里时，如实说明这里只展示了最近的订单。\n"
-                + "【订单数据】\n" + orderData;
     }
 
     /** 组装提示词：电商客服角色约束 + 知识库条目作为参考资料（轻量 RAG） */
