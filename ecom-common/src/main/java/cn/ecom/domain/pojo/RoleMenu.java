@@ -26,6 +26,5 @@ public class RoleMenu implements Serializable {
 
     private Long menuId;
 
-    /** 关联表为物理删除（重新分配角色/菜单时先删后插，避免唯一键冲突），不参与逻辑删除 */
-    private Integer delFlag;
+    // 不映射 del_flag：关联表为物理删除（重新分配时先删后插，避免唯一键冲突）
 }

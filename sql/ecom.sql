@@ -795,3 +795,22 @@ INSERT IGNORE INTO `ec_category` (`id`,`parent_id`,`name`,`level`,`sort`,`status
 (342,340,'足球',     3,  2, 0),
 (343,340,'羽毛球',   3,  3, 0),
 (344,340,'乒乓球',   3,  4, 0);
+
+-- ============================================================
+-- P3 交易菜单（增量）：商品浏览/购物车/我的订单（消费者）+ 营销中心>优惠券管理（活动运营）
+-- ============================================================
+INSERT IGNORE INTO `sys_menu` (`id`, `parent_id`, `name`, `menu_type`, `url_path`, `component`, `permit`, `icon`, `order_num`, `visible`, `status`) VALUES
+(400, 0,   '商品浏览',   'M', '/shop',          'shop',         'shop',          'iconfont icon-shangpin',   2, 0, 0),
+(401, 0,   '购物车',     'M', '/cart',          'cart',         'member:cart',   'iconfont icon-gouwuche',   5, 0, 0),
+(402, 0,   '我的订单',   'M', '/order/list',    'orderList',    'member:order',  'iconfont icon-dingdan',    6, 0, 0),
+(500, 0,   '营销中心',   'M', '/marketing',     'marketing',    'marketing',     'iconfont icon-yingxiao',   7, 0, 0),
+(501, 500, '优惠券管理', 'C', '/coupon/manage', 'couponManage', 'coupon:manage', NULL, 1, 0, 0),
+(502, 501, '新增优惠券', 'F', '/coupon/add',    'couponAdd',    'coupon:add',    NULL, 0, 1, 0),
+(503, 501, '修改优惠券', 'F', '/coupon/edit',   'couponEdit',   'coupon:edit',   NULL, 0, 1, 0),
+(504, 501, '删除优惠券', 'F', '/coupon/del',    'couponDel',    'coupon:del',    NULL, 0, 1, 0);
+
+-- 超管：全部新菜单；消费者(member)：浏览/购物车/订单；活动运营(market_op)：首页 + 营销中心
+INSERT IGNORE INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES
+(1, 400),(1, 401),(1, 402),(1, 500),(1, 501),(1, 502),(1, 503),(1, 504),
+(5, 400),(5, 401),(5, 402),
+(3, 1),(3, 500),(3, 501),(3, 502),(3, 503),(3, 504);
