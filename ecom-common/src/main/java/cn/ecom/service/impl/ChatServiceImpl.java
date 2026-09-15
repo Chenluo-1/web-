@@ -105,9 +105,13 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
                 orderData = buildOrderDetailLine(userId, om.group(0));
             } else {
                 Integer nth = parseOrderPosition(question);
-                orderData = nth != null
-                        ? buildNthOrder(userId, nth)
-                        : buildOrderData(userId, isLogisticsQuery(question));
+                if (nth != null && nth == -1) {
+                    orderData = buildOldestOrder(userId);
+                } else if (nth != null) {
+                    orderData = buildNthOrder(userId, nth);
+                } else {
+                    orderData = buildOrderData(userId, isLogisticsQuery(question));
+                }
             }
             reply = StringUtils.hasText(orderData) ? orderData.trim() : "您暂无订单记录，去商城逛逛吧～";
             transfer = false;
@@ -189,9 +193,10 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
                 return true;
             }
         }
-        // 位置指代追问（我要最近的一单 / 第2单呢 / 第一个订单）
+        // 位置指代追问（我要最近的一单 / 第2单呢 / 第一个订单 / 第一次买的东西）
         if (parseOrderPosition(question) != null
-                && (question.contains("单") || question.contains("笔") || question.contains("订单"))) {
+                && (question.contains("单") || question.contains("笔")
+                        || question.contains("订单") || question.contains("买"))) {
             return true;
         }
         // 组合规则：出现「我/查/看」+「订单/下单/购买」视为查自己的订单
@@ -219,9 +224,12 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
     private static final java.util.regex.Pattern POS_NTH = java.util.regex.Pattern.compile(
             "第([一二两三四五六七八九十]{1,3}|\\d{1,2})|([一二两三四五六七八九1-9])\\s*[单笔]");
 
-    /** 位置指代 → 第几笔（列表按最新排序，最近/最新/最后/上一 视为第 1 笔）；无指代返回 null */
+    /** 位置指代 → 第几笔；1=最近/最新/最后/上一/最晚，-1=最早，N=从最新数第 N 笔；无指代 null */
     private Integer parseOrderPosition(String question) {
-        if (question.contains("最近") || question.contains("最新")
+        if (question.contains("最早") || question.contains("第一个买") || question.contains("第一次买")) {
+            return -1;
+        }
+        if (question.contains("最近") || question.contains("最新") || question.contains("最晚")
                 || question.contains("最后") || question.contains("上一")) {
             return 1;
         }
@@ -233,6 +241,18 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
             return CN_NUM.get(m.group(2).charAt(0));
         }
         return null;
+    }
+
+    /** 最早一笔订单（按 id 升序第一条），附下单时间 */
+    private String buildOldestOrder(Long userId) {
+        List<Order> orders = orderMapper.selectList(new LambdaQueryWrapper<Order>()
+                .eq(Order::getUserId, userId)
+                .orderByAsc(Order::getId)
+                .last("LIMIT 1"));
+        if (orders.isEmpty()) {
+            return "您暂无订单记录，去商城逛逛吧～";
+        }
+        return buildOrderDetailLine(orders.get(0));
     }
 
     /** 中文/阿拉伯数字解析：十=10、十一=11、二十=20、二十一=21、\"3\"=3 */
@@ -268,7 +288,7 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
             return "您目前只有 " + orders.size() + " 笔订单（没有第 " + nth + " 笔哦）～以下是您最近的订单：\n"
                     + buildOrderData(userId, false);
         }
-        return buildOrderLine(orders.get(nth - 1));
+        return buildOrderDetailLine(orders.get(nth - 1));
     }
 
     /** 明确要求转人工的问法（直接进入转人工，不让大模型"假装"转接） */
@@ -344,6 +364,11 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
         if (order == null) {
             return "没有找到订单 " + orderNo + "（只能查询自己的订单哦）～请核对订单号是否正确。";
         }
+        return buildOrderDetailLine(order);
+    }
+
+    /** 单笔订单详情行：行内容 + 下单时间 */
+    private String buildOrderDetailLine(Order order) {
         return buildOrderLine(order) + " ｜ 下单时间 "
                 + new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm").format(order.getCreateTime());
     }
