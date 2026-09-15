@@ -18,7 +18,10 @@
         </div>
         <div v-for="(m, i) in messages" :key="i" class="msg" :class="m.role">
           <div class="bubble">
-            <div>{{ m.text }}</div>
+            <div class="bubble-text"><template
+              v-for="(seg, si) in parseSegs(m.text)"
+              :key="si"
+            ><a v-if="seg.order" class="order-link" @click="goOrder(seg.text)">{{ seg.text }}</a><template v-else>{{ seg.text }}</template></template></div>
             <div v-if="m.confidence !== undefined || m.source" class="meta">
               <el-tag v-if="m.source === 'rule'" size="small" type="success">知识库</el-tag>
               <el-tag v-else-if="m.source === 'llm'" size="small" type="primary">AI 回答</el-tag>
@@ -44,14 +47,40 @@
 
 <script setup>
 import { ref, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import chatHttp from '@/api/chatHttp'
 
+const router = useRouter()
 const visible = ref(false)
 const question = ref('')
 const asking = ref(false)
 const messages = ref([])
 const bodyRef = ref(null)
+
+// ---------- 订单号识别：回复中的 EC 开头订单号渲染为可点击链接 ----------
+const ORDER_RE = /EC\d{12,}/
+
+const parseSegs = text => {
+  const segs = []
+  let rest = String(text == null ? '' : text)
+  let m
+  while ((m = rest.match(ORDER_RE))) {
+    if (m.index > 0) {
+      segs.push({ text: rest.slice(0, m.index) })
+    }
+    segs.push({ text: m[0], order: true })
+    rest = rest.slice(m.index + m[0].length)
+  }
+  if (rest) {
+    segs.push({ text: rest })
+  }
+  return segs
+}
+
+const goOrder = orderNo => {
+  router.push('/order/detail?orderNo=' + orderNo)
+}
 
 const toggle = () => {
   visible.value = !visible.value
@@ -171,6 +200,21 @@ const send = async () => {
   font-size: 13px;
   color: #303133;
   line-height: 1.5;
+}
+
+.bubble-text {
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.order-link {
+  color: #409eff;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.order-link:hover {
+  color: #79bbff;
 }
 
 .msg.user .bubble {

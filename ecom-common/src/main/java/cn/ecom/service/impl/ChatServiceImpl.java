@@ -90,6 +90,11 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
             transfer = false;
             source = "rule";
             matchedQuestion = best.getQuestion();
+        } else if (isTransferRequest(question)) {
+            // 明确要求转人工：真实登记转接（不再让大模型"假装"转接）
+            reply = "好的，已为您登记转接人工客服，客服主管会尽快跟进，请稍后～";
+            transfer = true;
+            source = "transfer";
         } else if (isOrderQuery(question)) {
             // 第二层：订单查询（按登录用户匹配真实订单，固定精简格式直出，不经过大模型）
             String orderData = buildOrderData(userId, isLogisticsQuery(question));
@@ -147,11 +152,38 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
 
     private static final String[] ORDER_INTENT_KEYS = {
             "我的订单", "查订单", "查询订单", "订单状态", "订单详情", "我的单子", "我买的东西",
-            "购买记录", "历史订单", "我买了什么", "买过什么",
+            "购买记录", "历史订单", "我买了什么", "买过什么", "订单编号", "订单号", "单号",
+            "账户下的订单", "下单了", "下单记录", "下单的东西", "买的什么", "哪些东西", "什么时候能到",
             "物流", "快递", "包裹", "到哪了", "到哪儿", "发货了吗", "发货了嘛", "运单", "什么时候到"};
 
+    /** 政策类问法排除：这些问的是规则不是个人订单（问法压测补充） */
+    private static final String[] ORDER_EXCLUDE_KEYS = {
+            "能放", "放驿站", "送货上门", "指定快递", "发什么快递", "能加急", "怎么取消", "如何取消"};
+
     private boolean isOrderQuery(String question) {
+        for (String key : ORDER_EXCLUDE_KEYS) {
+            if (question.contains(key)) {
+                return false;
+            }
+        }
         for (String key : ORDER_INTENT_KEYS) {
+            if (question.contains(key)) {
+                return true;
+            }
+        }
+        // 组合规则：出现「我/查/看」+「订单/下单/购买」视为查自己的订单
+        boolean mine = question.contains("我") || question.contains("查") || question.contains("看");
+        boolean aboutOrder = question.contains("订单") || question.contains("下单")
+                || question.contains("购买") || question.contains("买过");
+        return mine && aboutOrder;
+    }
+
+    /** 明确要求转人工的问法（直接进入转人工，不让大模型"假装"转接） */
+    private static final String[] TRANSFER_INTENT_KEYS = {
+            "转人工", "人工客服", "找人工", "要人工", "真人客服", "转接人工"};
+
+    private boolean isTransferRequest(String question) {
+        for (String key : TRANSFER_INTENT_KEYS) {
             if (question.contains(key)) {
                 return true;
             }
@@ -244,6 +276,10 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
         List<PendingVo> result = new ArrayList<>();
         for (Map<String, Object> row : getBaseMapper().selectPendingQuestions()) {
             String question = String.valueOf(row.get("question"));
+            // "转人工"这类请求本身不算需要补充知识的问题
+            if (isTransferRequest(question)) {
+                continue;
+            }
             double best = 0;
             for (Knowledge knowledge : knowledges) {
                 best = Math.max(best, matchScore(question, knowledge));
