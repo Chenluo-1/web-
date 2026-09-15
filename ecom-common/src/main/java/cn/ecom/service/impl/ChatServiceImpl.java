@@ -102,18 +102,23 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
             if (best >= threshold) {
                 continue;
             }
-            Object lastTime = row.get("lastTime");
-            if (lastTime == null) {
-                for (Map.Entry<String, Object> entry : row.entrySet()) {
-                    if (entry.getKey().toLowerCase().contains("lasttime")) {
-                        lastTime = entry.getValue();
-                        break;
-                    }
+            Object lastTimeVal = null;
+            for (Map.Entry<String, Object> entry : row.entrySet()) {
+                String key = entry.getKey().replace("_", "").toLowerCase();
+                if (key.contains("lasttime")) {
+                    lastTimeVal = entry.getValue();
+                    break;
                 }
+            }
+            String lastTime = null;
+            if (lastTimeVal instanceof Date) {
+                lastTime = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format((Date) lastTimeVal);
+            } else if (lastTimeVal != null) {
+                lastTime = String.valueOf(lastTimeVal);
             }
             result.add(new PendingVo(question,
                     row.get("cnt") == null ? 0L : ((Number) row.get("cnt")).longValue(),
-                    lastTime instanceof Date ? (Date) lastTime : null));
+                    lastTime));
         }
         return result;
     }

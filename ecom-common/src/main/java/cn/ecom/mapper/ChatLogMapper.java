@@ -10,7 +10,7 @@ import java.util.Map;
 public interface ChatLogMapper extends BaseMapper<ChatLog> {
 
     /** 待补充问题：转人工的原始问题（去重 + 次数 + 最近时间），由服务层与知识库再比对过滤 */
-    @Select("SELECT question, COUNT(*) AS cnt, MAX(create_time) AS lastTime FROM ec_chat_log " +
-            "WHERE is_transfer = 1 AND del_flag = 0 GROUP BY question ORDER BY lastTime DESC LIMIT 100")
+    @Select("SELECT question, COUNT(*) AS cnt, DATE_FORMAT(MAX(create_time), '%Y-%m-%d %H:%i:%s') AS last_time FROM ec_chat_log " +
+            "WHERE is_transfer = 1 AND del_flag = 0 GROUP BY question ORDER BY last_time DESC LIMIT 100")
     List<Map<String, Object>> selectPendingQuestions();
 }
