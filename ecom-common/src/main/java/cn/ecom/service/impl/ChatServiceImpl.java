@@ -147,6 +147,7 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
 
     private static final String[] ORDER_INTENT_KEYS = {
             "我的订单", "查订单", "查询订单", "订单状态", "订单详情", "我的单子", "我买的东西",
+            "购买记录", "历史订单", "我买了什么", "买过什么",
             "物流", "快递", "包裹", "到哪了", "到哪儿", "发货了吗", "发货了嘛", "运单", "什么时候到"};
 
     private boolean isOrderQuery(String question) {
