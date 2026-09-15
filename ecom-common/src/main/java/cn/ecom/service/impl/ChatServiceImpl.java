@@ -5,6 +5,7 @@ import cn.ecom.domain.pojo.ChatLog;
 import cn.ecom.domain.pojo.Knowledge;
 import cn.ecom.domain.pojo.Order;
 import cn.ecom.domain.pojo.OrderItem;
+import cn.ecom.domain.pojo.Product;
 import cn.ecom.domain.vo.ChatReplyVo;
 import cn.ecom.domain.vo.PendingVo;
 import cn.ecom.handler.exception.BusinessException;
@@ -12,6 +13,7 @@ import cn.ecom.mapper.ChatLogMapper;
 import cn.ecom.mapper.KnowledgeMapper;
 import cn.ecom.mapper.OrderItemMapper;
 import cn.ecom.mapper.OrderMapper;
+import cn.ecom.mapper.ProductMapper;
 import cn.ecom.service.ChatService;
 import cn.ecom.service.SysConfigService;
 import cn.ecom.utils.AppHttpCodeEnum;
@@ -48,15 +50,17 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
     private final DeepSeekClient deepSeekClient;
     private final OrderMapper orderMapper;
     private final OrderItemMapper orderItemMapper;
+    private final ProductMapper productMapper;
 
     public ChatServiceImpl(KnowledgeMapper knowledgeMapper, SysConfigService sysConfigService,
                            DeepSeekClient deepSeekClient, OrderMapper orderMapper,
-                           OrderItemMapper orderItemMapper) {
+                           OrderItemMapper orderItemMapper, ProductMapper productMapper) {
         this.knowledgeMapper = knowledgeMapper;
         this.sysConfigService = sysConfigService;
         this.deepSeekClient = deepSeekClient;
         this.orderMapper = orderMapper;
         this.orderItemMapper = orderItemMapper;
+        this.productMapper = productMapper;
     }
 
     @Override
@@ -95,10 +99,16 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
             source = "transfer";
         } else if (isOrderQuery(question)) {
             // 第二层：订单查询（按登录用户匹配真实订单，固定精简格式直出，不经过大模型）
-            Integer nth = parseOrderPosition(question);
-            String orderData = nth != null
-                    ? buildNthOrder(userId, nth)
-                    : buildOrderData(userId, isLogisticsQuery(question));
+            java.util.regex.Matcher om = ORDER_NO_PATTERN.matcher(question);
+            String orderData;
+            if (om.find()) {
+                orderData = buildOrderDetailLine(userId, om.group(0));
+            } else {
+                Integer nth = parseOrderPosition(question);
+                orderData = nth != null
+                        ? buildNthOrder(userId, nth)
+                        : buildOrderData(userId, isLogisticsQuery(question));
+            }
             reply = StringUtils.hasText(orderData) ? orderData.trim() : "您暂无订单记录，去商城逛逛吧～";
             transfer = false;
             source = "order";
@@ -152,16 +162,23 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
     // ---------- 订单查询层 ----------
 
     private static final String[] ORDER_INTENT_KEYS = {
-            "我的订单", "查订单", "查询订单", "订单状态", "订单详情", "我的单子", "我买的东西",
+            "我的订单", "查订单", "查询订单", "订单查询", "订单状态", "订单详情", "我的单子", "我买的东西",
             "购买记录", "历史订单", "我买了什么", "买过什么", "订单编号", "订单号", "单号",
             "账户下的订单", "下单了", "下单记录", "下单的东西", "买的什么", "哪些东西", "什么时候能到",
             "物流", "快递", "包裹", "到哪了", "到哪儿", "发货了吗", "发货了嘛", "运单", "什么时候到"};
+
+    /** 问题里带了具体订单号（EC 开头）→ 直接查该笔订单 */
+    private static final java.util.regex.Pattern ORDER_NO_PATTERN = java.util.regex.Pattern.compile("EC\\d{12,}");
 
     /** 政策类问法排除：这些问的是规则不是个人订单（问法压测补充） */
     private static final String[] ORDER_EXCLUDE_KEYS = {
             "能放", "放驿站", "送货上门", "指定快递", "发什么快递", "能加急", "怎么取消", "如何取消"};
 
     private boolean isOrderQuery(String question) {
+        // 带具体订单号的问题一定是在问订单
+        if (ORDER_NO_PATTERN.matcher(question).find()) {
+            return true;
+        }
         for (String key : ORDER_EXCLUDE_KEYS) {
             if (question.contains(key)) {
                 return false;
@@ -256,7 +273,7 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
 
     /** 明确要求转人工的问法（直接进入转人工，不让大模型"假装"转接） */
     private static final String[] TRANSFER_INTENT_KEYS = {
-            "转人工", "人工客服", "找人工", "要人工", "真人客服", "转接人工"};
+            "转人工", "人工客服", "真人客服", "转接人工"};
 
     private boolean isTransferRequest(String question) {
         for (String key : TRANSFER_INTENT_KEYS) {
@@ -264,7 +281,8 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
                 return true;
             }
         }
-        return false;
+        // 极短句里的「人工」也算转人工请求（如"人工""要人工呢"），长句（如"退款要人工审核吗"）不算
+        return question.length() <= 6 && question.contains("人工");
     }
 
     private static final String[] LOGISTICS_INTENT_KEYS = {
@@ -318,6 +336,18 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
         return sb.toString();
     }
 
+    /** 带具体订单号的查询：单笔详情（状态/金额/商品/下单时间），仅限本人订单 */
+    private String buildOrderDetailLine(Long userId, String orderNo) {
+        Order order = orderMapper.selectOne(new LambdaQueryWrapper<Order>()
+                .eq(Order::getOrderNo, orderNo)
+                .eq(Order::getUserId, userId));
+        if (order == null) {
+            return "没有找到订单 " + orderNo + "（只能查询自己的订单哦）～请核对订单号是否正确。";
+        }
+        return buildOrderLine(order) + " ｜ 下单时间 "
+                + new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm").format(order.getCreateTime());
+    }
+
     private String statusName(Integer status) {
         if (status == null || status < 0 || status >= STATUS_NAMES.length) {
             return "未知";
@@ -325,7 +355,7 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
         return STATUS_NAMES[status];
     }
 
-    /** 组装提示词：电商客服角色约束 + 知识库条目作为参考资料（轻量 RAG） */
+    /** 组装提示词：电商客服角色约束 + 知识库条目 + 在售商品摘要（轻量 RAG） */
     private String buildLlmSystemPrompt() {
         StringBuilder sb = new StringBuilder();
         sb.append("你是电商店铺「电商智能系统」的在线客服助手。要求：")
@@ -335,6 +365,25 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
         for (Knowledge knowledge : activeKnowledges()) {
             sb.append("【问】").append(knowledge.getQuestion()).append('\n')
                     .append("【答】").append(knowledge.getAnswer()).append('\n');
+        }
+        sb.append("商品咨询与推荐请以【在售商品】清单为准，不要推荐清单以外的商品，价格以清单为准：\n")
+                .append(buildCatalogSummary());
+        return sb.toString();
+    }
+
+    /** 在售商品摘要（按销量排序，供大模型回答商品咨询/推荐） */
+    private String buildCatalogSummary() {
+        List<Product> products = productMapper.selectList(new LambdaQueryWrapper<Product>()
+                .eq(Product::getStatus, 1)
+                .orderByDesc(Product::getSales));
+        StringBuilder sb = new StringBuilder();
+        for (Product p : products) {
+            sb.append("- ").append(p.getTitle()).append(" ¥").append(p.getPriceMin());
+            if (p.getPriceMax() != null && p.getPriceMin() != null
+                    && p.getPriceMax().compareTo(p.getPriceMin()) != 0) {
+                sb.append('-').append(p.getPriceMax());
+            }
+            sb.append('\n');
         }
         return sb.toString();
     }
