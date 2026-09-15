@@ -22,6 +22,7 @@
             <div v-if="m.confidence !== undefined || m.source" class="meta">
               <el-tag v-if="m.source === 'rule'" size="small" type="success">知识库</el-tag>
               <el-tag v-else-if="m.source === 'llm'" size="small" type="primary">AI 回答</el-tag>
+              <el-tag v-else-if="m.source === 'order'" size="small" type="info">订单查询</el-tag>
               <span v-if="m.confidence !== undefined">置信度 {{ (m.confidence * 100).toFixed(0) }}%</span>
               <el-tag v-if="m.transfer" size="small" type="warning">已转人工</el-tag>
             </div>

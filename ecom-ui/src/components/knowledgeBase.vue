@@ -72,6 +72,7 @@
               <template #default="{ row }">
                 <el-tag v-if="row.source === 'rule'" type="success" size="small">知识库</el-tag>
                 <el-tag v-else-if="row.source === 'llm'" type="primary" size="small">AI 回答</el-tag>
+                <el-tag v-else-if="row.source === 'order'" type="info" size="small">订单查询</el-tag>
                 <el-tag v-else-if="row.source === 'transfer'" type="warning" size="small">转人工</el-tag>
                 <span v-else>-</span>
               </template>

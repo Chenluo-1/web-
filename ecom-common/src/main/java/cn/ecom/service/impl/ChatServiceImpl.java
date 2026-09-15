@@ -3,17 +3,24 @@ package cn.ecom.service.impl;
 import cn.ecom.config.DeepSeekClient;
 import cn.ecom.domain.pojo.ChatLog;
 import cn.ecom.domain.pojo.Knowledge;
+import cn.ecom.domain.pojo.Logistics;
+import cn.ecom.domain.pojo.Order;
+import cn.ecom.domain.pojo.OrderItem;
 import cn.ecom.domain.vo.ChatReplyVo;
 import cn.ecom.domain.vo.PendingVo;
 import cn.ecom.handler.exception.BusinessException;
 import cn.ecom.mapper.ChatLogMapper;
 import cn.ecom.mapper.KnowledgeMapper;
+import cn.ecom.mapper.LogisticsMapper;
+import cn.ecom.mapper.OrderItemMapper;
+import cn.ecom.mapper.OrderMapper;
 import cn.ecom.service.ChatService;
 import cn.ecom.service.SysConfigService;
 import cn.ecom.utils.AppHttpCodeEnum;
 import cn.ecom.utils.SecurityUtils;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -22,16 +29,20 @@ import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
- * 智能客服（规则版）：
- * 对问题做字符级 2-gram 归一化后计算余弦相似度（对中文短句无需外部分词库，容忍少量错字与语序差异），
- * 取标准问法与相似问法的最高分作为置信度；≥ 阈值（ec_sys_config，默认 0.85）自动回复，否则转人工。
+ * 智能客服（四层分流）：
+ * ①知识库规则命中（2-gram 余弦+包含度，≥ 阈值默认 0.85）→ 秒回；
+ * ②订单查询意图（按登录用户匹配真实订单，DeepSeek 润色或结构化文本兜底）；
+ * ③DeepSeek 大模型兜底；④转人工并进入待补充闭环。
  */
 @Service("chatService")
 public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> implements ChatService {
@@ -41,12 +52,19 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
     private final KnowledgeMapper knowledgeMapper;
     private final SysConfigService sysConfigService;
     private final DeepSeekClient deepSeekClient;
+    private final OrderMapper orderMapper;
+    private final OrderItemMapper orderItemMapper;
+    private final LogisticsMapper logisticsMapper;
 
     public ChatServiceImpl(KnowledgeMapper knowledgeMapper, SysConfigService sysConfigService,
-                           DeepSeekClient deepSeekClient) {
+                           DeepSeekClient deepSeekClient, OrderMapper orderMapper,
+                           OrderItemMapper orderItemMapper, LogisticsMapper logisticsMapper) {
         this.knowledgeMapper = knowledgeMapper;
         this.sysConfigService = sysConfigService;
         this.deepSeekClient = deepSeekClient;
+        this.orderMapper = orderMapper;
+        this.orderItemMapper = orderItemMapper;
+        this.logisticsMapper = logisticsMapper;
     }
 
     @Override
@@ -70,6 +88,7 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
         String source;
         String matchedQuestion = null;
         BigDecimal confidence = BigDecimal.valueOf(bestScore).setScale(2, RoundingMode.HALF_UP);
+        Long userId = SecurityUtils.getUserId();
 
         if (best != null && bestScore >= threshold) {
             // 第一层：知识库规则命中
@@ -77,8 +96,22 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
             transfer = false;
             source = "rule";
             matchedQuestion = best.getQuestion();
+        } else if (isOrderQuery(question)) {
+            // 第二层：订单查询（按登录用户匹配真实订单，禁止模型编造）
+            String orderData = buildOrderData(userId, isLogisticsQuery(question));
+            String llmReply = null;
+            if (StringUtils.hasText(orderData) && llmEnabled()) {
+                llmReply = deepSeekClient.chat(buildOrderSystemPrompt(orderData), question);
+            }
+            reply = StringUtils.hasText(llmReply) ? llmReply
+                    : (StringUtils.hasText(orderData)
+                            ? "为您查到最近订单如下：\n" + orderData + "如需完整详情，可在「我的订单」页查看对应订单。"
+                            : "您暂无订单记录，去商城逛逛吧～");
+            transfer = false;
+            source = "order";
+            confidence = null;
         } else {
-            // 第二层：大模型兜底（开关关闭/未配密钥/调用失败 → null）
+            // 第三层：大模型兜底（开关关闭/未配密钥/调用失败 → null）
             String llmReply = llmReply(question);
             if (StringUtils.hasText(llmReply)) {
                 reply = llmReply;
@@ -86,14 +119,13 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
                 source = "llm";
                 confidence = null;
             } else {
-                // 第三层：转人工（进入待补充闭环）
+                // 第四层：转人工（进入待补充闭环）
                 reply = TRANSFER_REPLY;
                 transfer = true;
                 source = "transfer";
             }
         }
 
-        Long userId = SecurityUtils.getUserId();
         save(new ChatLog()
                 .setUserId(userId)
                 .setQuestion(question)
@@ -111,12 +143,126 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
         return vo;
     }
 
-    /** 大模型兜底回复；chat_llm_enabled=0 或调用失败时返回 null */
+    /** 大模型开关（ec_sys_config.chat_llm_enabled，默认开） */
+    private boolean llmEnabled() {
+        return "1".equals(sysConfigService.getString("chat_llm_enabled", "1"));
+    }
+
+    /** 大模型兜底回复；开关关闭或调用失败时返回 null */
     private String llmReply(String question) {
-        if (!"1".equals(sysConfigService.getString("chat_llm_enabled", "1"))) {
+        if (!llmEnabled()) {
             return null;
         }
         return deepSeekClient.chat(buildLlmSystemPrompt(), question);
+    }
+
+    // ---------- 订单查询层 ----------
+
+    private static final String[] ORDER_INTENT_KEYS = {
+            "我的订单", "查订单", "查询订单", "订单状态", "订单详情", "我的单子", "我买的东西",
+            "物流", "快递", "包裹", "到哪了", "到哪儿", "发货了吗", "发货了嘛", "运单", "什么时候到"};
+
+    private boolean isOrderQuery(String question) {
+        for (String key : ORDER_INTENT_KEYS) {
+            if (question.contains(key)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static final String[] LOGISTICS_INTENT_KEYS = {
+            "物流", "快递", "包裹", "到哪了", "到哪儿", "运单", "什么时候到"};
+
+    /** 物流类问法：优先取有物流记录的订单（运输中/已完成） */
+    private boolean isLogisticsQuery(String question) {
+        for (String key : LOGISTICS_INTENT_KEYS) {
+            if (question.contains(key)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static final String[] STATUS_NAMES = {"待支付", "待发货", "运输中", "已完成", "已取消", "退款中", "已退款"};
+
+    /** 按登录用户匹配真实订单，格式化为文本块；无订单返回空串 */
+    private String buildOrderData(Long userId, boolean logisticsFocus) {
+        LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<Order>().eq(Order::getUserId, userId);
+        if (logisticsFocus) {
+            wrapper.in(Order::getStatus, 2, 3);
+        }
+        wrapper.orderByDesc(Order::getId).last("LIMIT " + (logisticsFocus ? 3 : 5));
+        List<Order> orders = orderMapper.selectList(wrapper);
+        if (orders.isEmpty()) {
+            // 物流视角无记录时退回全量最近订单
+            return logisticsFocus ? buildOrderData(userId, false) : "";
+        }
+        List<Long> orderIds = orders.stream().map(Order::getId).collect(Collectors.toList());
+        Map<Long, List<OrderItem>> itemMap = orderItemMapper.selectList(
+                        new LambdaQueryWrapper<OrderItem>().in(OrderItem::getOrderId, orderIds))
+                .stream().collect(Collectors.groupingBy(OrderItem::getOrderId));
+
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+        StringBuilder sb = new StringBuilder();
+        int idx = 1;
+        for (Order order : orders) {
+            List<OrderItem> items = itemMap.getOrDefault(order.getId(), Collections.emptyList());
+            String itemSummary = "商品信息缺失";
+            if (!items.isEmpty()) {
+                int qty = items.stream().mapToInt(OrderItem::getQuantity).sum();
+                itemSummary = items.get(0).getProductName() + (items.size() > 1 ? " 等 " + items.size() + " 件商品" : "") + " 共" + qty + "件";
+            }
+            sb.append(idx++).append(". 订单号 ").append(order.getOrderNo())
+                    .append(" ｜ ").append(itemSummary)
+                    .append(" ｜ 金额 ¥").append(order.getPayAmount())
+                    .append(" ｜ 状态 ").append(statusName(order.getStatus()))
+                    .append(" ｜ 下单时间 ").append(sdf.format(order.getCreateTime()));
+            if (order.getStatus() != null && (order.getStatus() == 2 || order.getStatus() == 3)) {
+                Logistics logistics = logisticsMapper.selectOne(new LambdaQueryWrapper<Logistics>()
+                        .eq(Logistics::getOrderNo, order.getOrderNo()));
+                String latest = latestTrace(logistics);
+                if (latest != null) {
+                    sb.append(" ｜ 物流最新：").append(latest);
+                }
+            }
+            sb.append('\n');
+        }
+        return sb.toString();
+    }
+
+    private String statusName(Integer status) {
+        if (status == null || status < 0 || status >= STATUS_NAMES.length) {
+            return "未知";
+        }
+        return STATUS_NAMES[status];
+    }
+
+    /** 取物流轨迹最后一条：文案(时间) */
+    private String latestTrace(Logistics logistics) {
+        if (logistics == null || !StringUtils.hasText(logistics.getTraceJson())) {
+            return null;
+        }
+        try {
+            JSONArray array = JSON.parseArray(logistics.getTraceJson());
+            if (array == null || array.isEmpty()) {
+                return null;
+            }
+            JSONObject last = array.getJSONObject(array.size() - 1);
+            return last.getString("text") + "（" + last.getString("time") + "）";
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** 订单查询提示词：真实数据 + 数字不可改动强约束 */
+    private String buildOrderSystemPrompt(String orderData) {
+        return "你是电商店铺「电商智能系统」的在线客服助手。用户正在询问自己的订单，"
+                + "下面【订单数据】是系统刚为该用户实时查询到的真实数据。要求："
+                + "1) 用简洁友好的中文向用户说明查询结果；"
+                + "2) 订单号、金额、时间、状态等所有内容必须与【订单数据】完全一致，严禁修改、截断或编造；"
+                + "3) 数据中没有的信息不要补充；用户问的订单不在数据里时，如实说明这里只展示了最近的订单。\n"
+                + "【订单数据】\n" + orderData;
     }
 
     /** 组装提示词：电商客服角色约束 + 知识库条目作为参考资料（轻量 RAG） */
