@@ -10,6 +10,9 @@ spring:
       url: jdbc:mysql://localhost:3306/ecom?characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
       username: root
       password: 123456
+  redis:
+    host: localhost
+    port: 6379
   mvc:
     # springfox 2.9.2 与 Boot 2.5 的兼容配置（不配会启动报错）
     pathmatch:
@@ -17,7 +20,7 @@ spring:
 
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
-  type-aliases-package: cn.ecom.domain.entity
+  type-aliases-package: cn.ecom.domain.pojo
   configuration:
     map-underscore-to-camel-case: true
     # 开发期打印 SQL（P8 收尾时移除）

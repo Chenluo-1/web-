@@ -1,7 +1,7 @@
 -- ============================================================
 -- 电商智能系统（ecom）全量数据库脚本（唯一权威，随开发持续维护）
 -- MySQL 8 / utf8mb4；每表必备 id/create_time/update_time/del_flag
--- 表清单：sys_* 5 张（用户/角色/菜单/用户角色/角色菜单）
+-- 表清单：sys_* 6 张（用户/角色/菜单/用户角色/角色菜单/操作日志）
 --        ec_* 25 张（商品5 交易6 售后3 供应链3 统计2 智能与预留6）
 -- 初始账号：admin / admin123（BCrypt 加密）
 -- ============================================================
@@ -103,6 +103,28 @@ CREATE TABLE `sys_role_menu` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_role_menu` (`role_id`, `menu_id`)
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '角色菜单关联表';
+
+-- ----------------------------
+-- 6. 操作日志表（写操作审计，P1 新增）
+-- ----------------------------
+DROP TABLE IF EXISTS `sys_oper_log`;
+CREATE TABLE `sys_oper_log` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `module` varchar(50) NOT NULL COMMENT '模块名',
+  `oper_type` varchar(20) NOT NULL COMMENT '操作类型(新增/修改/删除等)',
+  `method` varchar(200) DEFAULT NULL COMMENT '方法名',
+  `params` text COMMENT '请求参数(密码已脱敏)',
+  `operator_id` bigint DEFAULT NULL COMMENT '操作人id',
+  `operator_name` varchar(50) DEFAULT NULL COMMENT '操作人登录名',
+  `ip` varchar(50) DEFAULT NULL COMMENT '操作IP',
+  `status` tinyint NOT NULL DEFAULT 0 COMMENT '状态(0成功 1失败)',
+  `error_msg` varchar(500) DEFAULT NULL COMMENT '失败信息',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `del_flag` tinyint NOT NULL DEFAULT 0 COMMENT '删除标志(0正常 1删除)',
+  PRIMARY KEY (`id`),
+  KEY `idx_create_time` (`create_time`)
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '操作日志表';
 
 -- ============================================================
 -- 二、商品域（5 张）

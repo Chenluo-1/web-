@@ -1,0 +1,160 @@
+package cn.ecom.service.impl;
+
+import cn.ecom.domain.dto.PasswordDto;
+import cn.ecom.domain.dto.UserDto;
+import cn.ecom.domain.pojo.User;
+import cn.ecom.domain.pojo.UserRole;
+import cn.ecom.handler.exception.BusinessException;
+import cn.ecom.mapper.UserMapper;
+import cn.ecom.mapper.UserRoleMapper;
+import cn.ecom.service.UserService;
+import cn.ecom.utils.AppHttpCodeEnum;
+import cn.ecom.utils.SecurityUtils;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+/**
+ * 用户服务实现
+ */
+@Service("userService")
+public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
+
+    /** 新增用户未填密码时的默认密码 */
+    private static final String DEFAULT_PASSWORD = "123456";
+
+    private final PasswordEncoder passwordEncoder;
+    private final UserRoleMapper userRoleMapper;
+
+    public UserServiceImpl(PasswordEncoder passwordEncoder, UserRoleMapper userRoleMapper) {
+        this.passwordEncoder = passwordEncoder;
+        this.userRoleMapper = userRoleMapper;
+    }
+
+    @Override
+    public Page<User> selectByPage(Integer pageNum, Integer pageSize, User user) {
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+        if (user != null) {
+            wrapper.like(StringUtils.hasText(user.getUsername()), User::getUsername, user.getUsername());
+            wrapper.like(StringUtils.hasText(user.getNickName()), User::getNickName, user.getNickName());
+            wrapper.eq(user.getUserType() != null, User::getUserType, user.getUserType());
+            wrapper.eq(user.getStatus() != null, User::getStatus, user.getStatus());
+        }
+        wrapper.orderByAsc(User::getId);
+        Page<User> page = page(new Page<>(pageNum == null ? 1 : pageNum, pageSize == null ? 10 : pageSize), wrapper);
+        page.getRecords().forEach(u -> u.setPassword(null));
+        return page;
+    }
+
+    @Override
+    public List<User> selectAll() {
+        List<User> list = list();
+        list.forEach(u -> u.setPassword(null));
+        return list;
+    }
+
+    @Override
+    public User getUserById(Long id) {
+        User user = getById(id);
+        if (user != null) {
+            user.setPassword(null);
+        }
+        return user;
+    }
+
+    @Override
+    @Transactional
+    public void addUser(UserDto userDto) {
+        if (!StringUtils.hasText(userDto.getUsername())) {
+            throw new BusinessException(AppHttpCodeEnum.PARAMETER_ERROR, "登录名不能为空");
+        }
+        Integer count = lambdaQuery().eq(User::getUsername, userDto.getUsername()).count();
+        if (count != null && count > 0) {
+            throw new BusinessException(AppHttpCodeEnum.USERNAME_EXIST);
+        }
+        String rawPassword = StringUtils.hasText(userDto.getPassword()) ? userDto.getPassword() : DEFAULT_PASSWORD;
+        userDto.setPassword(passwordEncoder.encode(rawPassword));
+        userDto.setId(null);
+        save(userDto);
+        saveUserRoles(userDto.getId(), userDto.getRoleIds());
+    }
+
+    @Override
+    @Transactional
+    public void updateUser(UserDto userDto) {
+        if (userDto.getId() == null) {
+            throw new BusinessException(AppHttpCodeEnum.USER_NOT_EXIST);
+        }
+        // 密码统一走重置/修改接口
+        userDto.setPassword(null);
+        updateById(userDto);
+        saveUserRoles(userDto.getId(), userDto.getRoleIds());
+    }
+
+    @Override
+    public void resetPassword(PasswordDto passwordDto) {
+        User user = getById(passwordDto.getId());
+        if (user == null) {
+            throw new BusinessException(AppHttpCodeEnum.USER_NOT_EXIST);
+        }
+        if (!StringUtils.hasText(passwordDto.getNewPassword())) {
+            throw new BusinessException(AppHttpCodeEnum.PARAMETER_ERROR, "新密码不能为空");
+        }
+        updateById(new User()
+                .setId(passwordDto.getId())
+                .setPassword(passwordEncoder.encode(passwordDto.getNewPassword())));
+    }
+
+    @Override
+    public void changePassword(PasswordDto passwordDto) {
+        Long userId = SecurityUtils.getUserId();
+        User user = getById(userId);
+        if (user == null) {
+            throw new BusinessException(AppHttpCodeEnum.USER_NOT_EXIST);
+        }
+        String oldPassword = passwordDto.getOldPassword() == null ? "" : passwordDto.getOldPassword();
+        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
+            throw new BusinessException(AppHttpCodeEnum.OLD_PASSWORD_ERROR);
+        }
+        if (!StringUtils.hasText(passwordDto.getNewPassword())) {
+            throw new BusinessException(AppHttpCodeEnum.PARAMETER_ERROR, "新密码不能为空");
+        }
+        updateById(new User()
+                .setId(userId)
+                .setPassword(passwordEncoder.encode(passwordDto.getNewPassword())));
+    }
+
+    @Override
+    @Transactional
+    public void deleteUsers(List<Long> ids) {
+        removeByIds(ids);
+        userRoleMapper.delete(new LambdaQueryWrapper<UserRole>().in(UserRole::getUserId, ids));
+    }
+
+    @Override
+    public List<Long> getRoleIdsByUserId(Long userId) {
+        return userRoleMapper.selectList(new LambdaQueryWrapper<UserRole>().eq(UserRole::getUserId, userId))
+                .stream().map(UserRole::getRoleId).collect(Collectors.toList());
+    }
+
+    /** 重分配用户角色（roleIds 为 null 表示不改动） */
+    private void saveUserRoles(Long userId, List<Long> roleIds) {
+        if (roleIds == null) {
+            return;
+        }
+        userRoleMapper.delete(new LambdaQueryWrapper<UserRole>().eq(UserRole::getUserId, userId));
+        for (Long roleId : roleIds) {
+            UserRole userRole = new UserRole();
+            userRole.setUserId(userId);
+            userRole.setRoleId(roleId);
+            userRoleMapper.insert(userRole);
+        }
+    }
+}
