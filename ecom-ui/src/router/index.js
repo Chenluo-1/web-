@@ -14,7 +14,8 @@ const routes = [
     component: () => import('@/views/Menu'),
     redirect: '/home',
     children: [
-      { path: '/home', name: 'home', component: () => import('@/components/home') }
+      { path: '/home', name: 'home', component: () => import('@/components/home') },
+      { path: '/product/edit', name: 'productEdit', component: () => import('@/components/productEdit') }
     ]
   },
   { path: '/404', name: 'NotFound', component: () => import('@/views/404') }
