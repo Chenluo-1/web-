@@ -603,7 +603,7 @@ CREATE TABLE `ec_search_log` (
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '搜索日志表';
 
 -- ----------------------------
--- 29. 商品评价（预留，后期简化实现）
+-- 29. 商品评价（P8 简化实现：已完成订单可评，星级+文字）
 -- ----------------------------
 DROP TABLE IF EXISTS `ec_review`;
 CREATE TABLE `ec_review` (
@@ -623,7 +623,7 @@ CREATE TABLE `ec_review` (
   PRIMARY KEY (`id`),
   KEY `idx_product_id` (`product_id`),
   KEY `idx_order_no` (`order_no`)
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '商品评价表（预留）';
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '商品评价表';
 
 -- ----------------------------
 -- 30. 用户行为采集（预留，供漏斗与推荐）
