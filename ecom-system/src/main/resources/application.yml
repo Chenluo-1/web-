@@ -17,6 +17,10 @@ spring:
     multipart:
       max-file-size: 10MB
       max-request-size: 20MB
+  jackson:
+    # 日期统一 yyyy-MM-dd HH:mm:ss（前后端一致，优惠券有效期表单需要）
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
   mvc:
     # springfox 2.9.2 与 Boot 2.5 的兼容配置（不配会启动报错）
     pathmatch:
