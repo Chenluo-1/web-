@@ -63,7 +63,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                         "/webjars/**", "/doc.html", "/favicon.ico").permitAll()
                 // 登录态相关与系统管理接口必须登录
                 .antMatchers("/getInfo", "/getRouters", "/logout", "/sys/**", "/product/**", "/file/**",
-                        "/cart/**", "/address/**", "/order/**", "/coupon/**").authenticated()
+                        "/cart/**", "/address/**", "/order/**", "/coupon/**", "/logistics/**").authenticated()
                 .anyRequest().permitAll();
 
         http.exceptionHandling()

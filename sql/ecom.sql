@@ -814,3 +814,16 @@ INSERT IGNORE INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES
 (1, 400),(1, 401),(1, 402),(1, 500),(1, 501),(1, 502),(1, 503),(1, 504),
 (5, 400),(5, 401),(5, 402),
 (3, 1),(3, 500),(3, 501),(3, 502),(3, 503),(3, 504);
+
+-- ============================================================
+-- P4 售后菜单（增量）：订单管理（运营）+ 发货/审核退款按钮
+-- ============================================================
+INSERT IGNORE INTO `sys_menu` (`id`, `parent_id`, `name`, `menu_type`, `url_path`, `component`, `permit`, `icon`, `order_num`, `visible`, `status`) VALUES
+(600, 0,   '订单管理', 'M', '/order/manage',       'orderManage',     'order:manage', 'iconfont icon-dingdan', 4, 0, 0),
+(601, 600, '发货',     'F', '/order/ship',         'orderShip',       'order:ship',   NULL, 0, 1, 0),
+(602, 600, '审核退款', 'F', '/order/refund/audit', 'orderRefundAudit','order:refund', NULL, 0, 1, 0);
+
+-- 超管 + 商品运营（订单处理）
+INSERT IGNORE INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES
+(1, 600),(1, 601),(1, 602),
+(2, 600),(2, 601),(2, 602);

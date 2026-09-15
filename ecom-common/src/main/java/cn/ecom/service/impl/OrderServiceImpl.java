@@ -1,13 +1,18 @@
 package cn.ecom.service.impl;
 
 import cn.ecom.domain.dto.OrderCreateDto;
+import cn.ecom.domain.dto.RefundAuditDto;
+import cn.ecom.domain.dto.ShipDto;
 import cn.ecom.domain.pojo.Address;
 import cn.ecom.domain.pojo.Coupon;
 import cn.ecom.domain.pojo.Order;
 import cn.ecom.domain.pojo.OrderItem;
+import cn.ecom.domain.pojo.Logistics;
 import cn.ecom.domain.pojo.OrderStatusLog;
+import cn.ecom.domain.pojo.Refund;
 import cn.ecom.domain.pojo.UserCoupon;
 import cn.ecom.domain.vo.CartItemVo;
+import cn.ecom.domain.vo.OrderDetailVo;
 import cn.ecom.domain.vo.OrderVo;
 import cn.ecom.handler.exception.BusinessException;
 import cn.ecom.mapper.AddressMapper;
@@ -15,10 +20,12 @@ import cn.ecom.mapper.CouponMapper;
 import cn.ecom.mapper.OrderItemMapper;
 import cn.ecom.mapper.OrderMapper;
 import cn.ecom.mapper.OrderStatusLogMapper;
+import cn.ecom.mapper.RefundMapper;
 import cn.ecom.mapper.SkuMapper;
 import cn.ecom.mapper.UserCouponMapper;
 import cn.ecom.service.CartService;
 import cn.ecom.service.OrderService;
+import cn.ecom.service.LogisticsService;
 import cn.ecom.service.SysConfigService;
 import cn.ecom.utils.AppHttpCodeEnum;
 import cn.ecom.utils.SecurityUtils;
@@ -36,9 +43,13 @@ import java.math.RoundingMode;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
@@ -56,7 +67,11 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
     /** 订单状态常量 */
     private static final int STATUS_UNPAID = 0;
     private static final int STATUS_PAID = 1;
+    private static final int STATUS_SHIPPED = 2;
+    private static final int STATUS_FINISHED = 3;
     private static final int STATUS_CANCELED = 4;
+    private static final int STATUS_REFUNDING = 5;
+    private static final int STATUS_REFUNDED = 6;
 
     private final AddressMapper addressMapper;
     private final SkuMapper skuMapper;
@@ -66,11 +81,14 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
     private final OrderStatusLogMapper statusLogMapper;
     private final CartService cartService;
     private final SysConfigService sysConfigService;
+    private final LogisticsService logisticsService;
+    private final RefundMapper refundMapper;
 
     public OrderServiceImpl(AddressMapper addressMapper, SkuMapper skuMapper, CouponMapper couponMapper,
                             UserCouponMapper userCouponMapper, OrderItemMapper orderItemMapper,
                             OrderStatusLogMapper statusLogMapper, CartService cartService,
-                            SysConfigService sysConfigService) {
+                            SysConfigService sysConfigService, LogisticsService logisticsService,
+                            RefundMapper refundMapper) {
         this.addressMapper = addressMapper;
         this.skuMapper = skuMapper;
         this.couponMapper = couponMapper;
@@ -79,6 +97,8 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         this.statusLogMapper = statusLogMapper;
         this.cartService = cartService;
         this.sysConfigService = sysConfigService;
+        this.logisticsService = logisticsService;
+        this.refundMapper = refundMapper;
     }
 
     @Override
@@ -266,22 +286,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
                         .eq(Order::getUserId, userId)
                         .eq(status != null, Order::getStatus, status)
                         .orderByDesc(Order::getId));
-        // 批量取明细，避免逐单查询
-        List<Long> orderIds = orderPage.getRecords().stream().map(Order::getId).collect(Collectors.toList());
-        Map<String, List<OrderItem>> itemMap = new HashMap<>();
-        if (!orderIds.isEmpty()) {
-            List<OrderItem> allItems = orderItemMapper.selectList(new LambdaQueryWrapper<OrderItem>()
-                    .in(OrderItem::getOrderId, orderIds).orderByAsc(OrderItem::getId));
-            itemMap = allItems.stream().collect(Collectors.groupingBy(OrderItem::getOrderNo));
-        }
-        List<OrderVo> vos = new ArrayList<>();
-        for (Order order : orderPage.getRecords()) {
-            vos.add(new OrderVo(order, itemMap.getOrDefault(order.getOrderNo(), new ArrayList<>()),
-                    OrderVo.statusName(order.getStatus())));
-        }
-        Page<OrderVo> result = new Page<>(orderPage.getCurrent(), orderPage.getSize(), orderPage.getTotal());
-        result.setRecords(vos);
-        return result;
+        return toVoPage(orderPage);
     }
 
     @Override
@@ -301,26 +306,222 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             if (rows == 0) {
                 continue;
             }
-            // 释放库存
-            List<OrderItem> items = orderItemMapper.selectList(new LambdaQueryWrapper<OrderItem>()
-                    .eq(OrderItem::getOrderNo, order.getOrderNo()));
-            for (OrderItem item : items) {
-                skuMapper.restoreStock(item.getSkuId(), item.getQuantity());
-            }
-            // 退回优惠券
-            if (order.getUserCouponId() != null) {
-                userCouponMapper.update(null, new LambdaUpdateWrapper<UserCoupon>()
-                        .eq(UserCoupon::getId, order.getUserCouponId())
-                        .eq(UserCoupon::getStatus, 1)
-                        .set(UserCoupon::getStatus, 0)
-                        .set(UserCoupon::getUseTime, null)
-                        .set(UserCoupon::getOrderNo, null));
-            }
+            releaseOrderResources(order);
             writeStatusLog(order.getOrderNo(), STATUS_UNPAID, STATUS_CANCELED, 3, null, "超时未支付，自动取消");
             count++;
             log.info("订单超时取消：{}", order.getOrderNo());
         }
         return count;
+    }
+
+    // ---------- P4：状态机 + 发货/收货/退款 ----------
+
+    /** 状态机：合法流转表（只允许图中流转，非法一律拒绝） */
+    private static final Map<Integer, Set<Integer>> LEGAL_TRANSITIONS = new HashMap<>();
+
+    static {
+        LEGAL_TRANSITIONS.put(0, new HashSet<>(Arrays.asList(1, 4)));   // 待支付→待发货/已取消
+        LEGAL_TRANSITIONS.put(1, new HashSet<>(Arrays.asList(2, 5)));   // 待发货→运输中/退款中
+        LEGAL_TRANSITIONS.put(2, new HashSet<>(Arrays.asList(3)));      // 运输中→已完成
+        LEGAL_TRANSITIONS.put(5, new HashSet<>(Arrays.asList(6, 1)));   // 退款中→已退款/待发货(驳回)
+        LEGAL_TRANSITIONS.put(3, Collections.emptySet());               // 已完成：不可再流转（只能售后）
+        LEGAL_TRANSITIONS.put(4, Collections.emptySet());
+        LEGAL_TRANSITIONS.put(6, Collections.emptySet());
+    }
+
+    private void checkTransition(int from, int to) {
+        Set<Integer> allowed = LEGAL_TRANSITIONS.get(from);
+        if (allowed == null || !allowed.contains(to)) {
+            throw new BusinessException(AppHttpCodeEnum.ORDER_STATUS_ERROR,
+                    "当前状态（" + OrderVo.statusName(from) + "）不允许该操作");
+        }
+    }
+
+    /** 条件状态流转（互斥更新，返回行数） */
+    private int doUpdate(String orderNo, int from, int to, LambdaUpdateWrapper<Order> wrapper) {
+        return getBaseMapper().update(null, wrapper
+                .eq(Order::getOrderNo, orderNo)
+                .eq(Order::getStatus, from)
+                .set(Order::getStatus, to));
+    }
+
+    @Override
+    public OrderDetailVo getMineOrderDetail(String orderNo) {
+        return buildDetail(getOwnedOrder(orderNo));
+    }
+
+    @Override
+    public OrderDetailVo getManageOrderDetail(String orderNo) {
+        return buildDetail(getByOrderNoOrThrow(orderNo));
+    }
+
+    private OrderDetailVo buildDetail(Order order) {
+        List<OrderItem> items = orderItemMapper.selectList(new LambdaQueryWrapper<OrderItem>()
+                .eq(OrderItem::getOrderNo, order.getOrderNo()).orderByAsc(OrderItem::getId));
+        List<OrderStatusLog> logs = statusLogMapper.selectList(new LambdaQueryWrapper<OrderStatusLog>()
+                .eq(OrderStatusLog::getOrderNo, order.getOrderNo()).orderByAsc(OrderStatusLog::getId));
+        Logistics logistics = logisticsService.getTrace(order.getOrderNo());
+        List<Refund> refunds = refundMapper.selectList(new LambdaQueryWrapper<Refund>()
+                .eq(Refund::getOrderNo, order.getOrderNo()).orderByDesc(Refund::getId));
+        Refund refund = refunds.isEmpty() ? null : refunds.get(0);
+        return new OrderDetailVo(order, items, OrderVo.statusName(order.getStatus()), logs, logistics, refund);
+    }
+
+    @Override
+    @Transactional
+    public void cancelByUser(String orderNo) {
+        Order order = getOwnedOrder(orderNo);
+        checkTransition(order.getStatus(), STATUS_CANCELED);
+        int rows = doUpdate(orderNo, STATUS_UNPAID, STATUS_CANCELED,
+                new LambdaUpdateWrapper<Order>().set(Order::getCancelTime, new Date()));
+        if (rows == 0) {
+            throw new BusinessException(AppHttpCodeEnum.ORDER_STATUS_ERROR, "订单状态已变化，请刷新");
+        }
+        releaseOrderResources(order);
+        writeStatusLog(orderNo, STATUS_UNPAID, STATUS_CANCELED, 1, order.getUserId(), "用户取消订单");
+    }
+
+    @Override
+    @Transactional
+    public void ship(String orderNo, ShipDto shipDto) {
+        Order order = getByOrderNoOrThrow(orderNo);
+        if (shipDto == null || !StringUtils.hasText(shipDto.getCompany()) || !StringUtils.hasText(shipDto.getTrackingNo())) {
+            throw new BusinessException(AppHttpCodeEnum.PARAMETER_ERROR, "请填写物流公司和运单号");
+        }
+        checkTransition(order.getStatus(), STATUS_SHIPPED);
+        int rows = doUpdate(orderNo, STATUS_PAID, STATUS_SHIPPED,
+                new LambdaUpdateWrapper<Order>().set(Order::getShipTime, new Date()));
+        if (rows == 0) {
+            throw new BusinessException(AppHttpCodeEnum.ORDER_STATUS_ERROR, "订单状态已变化，请刷新");
+        }
+        logisticsService.createForOrder(order, shipDto.getCompany(), shipDto.getTrackingNo());
+        writeStatusLog(orderNo, STATUS_PAID, STATUS_SHIPPED, 2, SecurityUtils.getUserId(),
+                "商家发货：" + shipDto.getCompany());
+    }
+
+    @Override
+    public void confirmReceive(String orderNo) {
+        Order order = getOwnedOrder(orderNo);
+        checkTransition(order.getStatus(), STATUS_FINISHED);
+        int rows = doUpdate(orderNo, STATUS_SHIPPED, STATUS_FINISHED,
+                new LambdaUpdateWrapper<Order>().set(Order::getReceiveTime, new Date()));
+        if (rows == 0) {
+            throw new BusinessException(AppHttpCodeEnum.ORDER_STATUS_ERROR, "订单状态已变化，请刷新");
+        }
+        writeStatusLog(orderNo, STATUS_SHIPPED, STATUS_FINISHED, 1, order.getUserId(), "确认收货");
+    }
+
+    @Override
+    @Transactional
+    public void applyRefund(String orderNo, String reason) {
+        Order order = getOwnedOrder(orderNo);
+        if (!StringUtils.hasText(reason)) {
+            throw new BusinessException(AppHttpCodeEnum.PARAMETER_ERROR, "请填写退款原因");
+        }
+        checkTransition(order.getStatus(), STATUS_REFUNDING);
+        int rows = doUpdate(orderNo, STATUS_PAID, STATUS_REFUNDING, new LambdaUpdateWrapper<>());
+        if (rows == 0) {
+            throw new BusinessException(AppHttpCodeEnum.ORDER_STATUS_ERROR, "订单状态已变化，请刷新");
+        }
+        refundMapper.insert(new Refund()
+                .setOrderNo(orderNo)
+                .setUserId(order.getUserId())
+                .setAmount(order.getPayAmount())
+                .setReason(reason)
+                .setStatus(0));
+        writeStatusLog(orderNo, STATUS_PAID, STATUS_REFUNDING, 1, order.getUserId(), "申请退款：" + reason);
+    }
+
+    @Override
+    @Transactional
+    public void auditRefund(Long refundId, RefundAuditDto auditDto) {
+        Refund refund = refundMapper.selectById(refundId);
+        if (refund == null || refund.getStatus() != 0) {
+            throw new BusinessException(AppHttpCodeEnum.PARAMETER_ERROR, "退款单不存在或已审核");
+        }
+        Order order = getByOrderNoOrThrow(refund.getOrderNo());
+        boolean approve = auditDto != null && Boolean.TRUE.equals(auditDto.getApprove());
+        int to = approve ? STATUS_REFUNDED : STATUS_PAID;
+        checkTransition(order.getStatus(), to);
+        Long auditor = SecurityUtils.getUserId();
+        Date now = new Date();
+        int rows = doUpdate(refund.getOrderNo(), STATUS_REFUNDING, to, new LambdaUpdateWrapper<>());
+        if (rows == 0) {
+            throw new BusinessException(AppHttpCodeEnum.ORDER_STATUS_ERROR, "订单状态已变化，请刷新");
+        }
+        refund.setStatus(approve ? 1 : 2)
+                .setAuditUserId(auditor)
+                .setAuditTime(now)
+                .setAuditRemark(auditDto == null ? null : auditDto.getRemark());
+        refundMapper.updateById(refund);
+        if (approve) {
+            // 退款成功后回滚库存（可配置：refund_stock_rollback，默认 1）
+            if (sysConfigService.getInt("refund_stock_rollback", 1) == 1) {
+                List<OrderItem> items = orderItemMapper.selectList(new LambdaQueryWrapper<OrderItem>()
+                        .eq(OrderItem::getOrderNo, refund.getOrderNo()));
+                for (OrderItem item : items) {
+                    skuMapper.restoreStock(item.getSkuId(), item.getQuantity());
+                }
+            }
+            writeStatusLog(refund.getOrderNo(), STATUS_REFUNDING, STATUS_REFUNDED, 2, auditor, "退款审核通过，已退款");
+        } else {
+            writeStatusLog(refund.getOrderNo(), STATUS_REFUNDING, STATUS_PAID, 2, auditor,
+                    "退款申请被驳回" + (StringUtils.hasText(refund.getAuditRemark()) ? "：" + refund.getAuditRemark() : ""));
+        }
+    }
+
+    /** 释放订单资源：回补库存 + 退回优惠券（超时取消/用户取消共用） */
+    private void releaseOrderResources(Order order) {
+        List<OrderItem> items = orderItemMapper.selectList(new LambdaQueryWrapper<OrderItem>()
+                .eq(OrderItem::getOrderNo, order.getOrderNo()));
+        for (OrderItem item : items) {
+            skuMapper.restoreStock(item.getSkuId(), item.getQuantity());
+        }
+        if (order.getUserCouponId() != null) {
+            userCouponMapper.update(null, new LambdaUpdateWrapper<UserCoupon>()
+                    .eq(UserCoupon::getId, order.getUserCouponId())
+                    .eq(UserCoupon::getStatus, 1)
+                    .set(UserCoupon::getStatus, 0)
+                    .set(UserCoupon::getUseTime, null)
+                    .set(UserCoupon::getOrderNo, null));
+        }
+    }
+
+    @Override
+    public Page<OrderVo> selectManageByPage(Integer pageNum, Integer pageSize, String orderNo, Integer status) {
+        Page<Order> orderPage = page(new Page<>(pageNum == null ? 1 : pageNum, pageSize == null ? 10 : pageSize),
+                new LambdaQueryWrapper<Order>()
+                        .like(StringUtils.hasText(orderNo), Order::getOrderNo, orderNo)
+                        .eq(status != null, Order::getStatus, status)
+                        .orderByDesc(Order::getId));
+        return toVoPage(orderPage);
+    }
+
+    /** 分页订单批量补明细（避免逐单查询） */
+    private Page<OrderVo> toVoPage(Page<Order> orderPage) {
+        List<Long> orderIds = orderPage.getRecords().stream().map(Order::getId).collect(Collectors.toList());
+        Map<String, List<OrderItem>> itemMap = new HashMap<>();
+        if (!orderIds.isEmpty()) {
+            List<OrderItem> allItems = orderItemMapper.selectList(new LambdaQueryWrapper<OrderItem>()
+                    .in(OrderItem::getOrderId, orderIds).orderByAsc(OrderItem::getId));
+            itemMap = allItems.stream().collect(Collectors.groupingBy(OrderItem::getOrderNo));
+        }
+        List<OrderVo> vos = new ArrayList<>();
+        for (Order order : orderPage.getRecords()) {
+            vos.add(new OrderVo(order, itemMap.getOrDefault(order.getOrderNo(), new ArrayList<>()),
+                    OrderVo.statusName(order.getStatus())));
+        }
+        Page<OrderVo> result = new Page<>(orderPage.getCurrent(), orderPage.getSize(), orderPage.getTotal());
+        result.setRecords(vos);
+        return result;
+    }
+
+    private Order getByOrderNoOrThrow(String orderNo) {
+        Order order = getByOrderNo(orderNo);
+        if (order == null) {
+            throw new BusinessException(AppHttpCodeEnum.ORDER_NOT_EXIST);
+        }
+        return order;
     }
 
     // ---------- 私有工具 ----------
