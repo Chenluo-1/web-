@@ -3,12 +3,17 @@
 <mapper namespace="cn.ecom.mapper.MenuMapper">
 
     <select id="selectPermsByUserId" resultType="java.lang.String">
+        <!--
+          注意：permit 也挂在 M（目录/页面）型菜单上，例如「订单管理」的 order:manage、
+          「数据看板」的 dashboard:view。若只取 C/F，这些页面级权限永远不会下发，
+          非超管角色（op1/cs1 等）访问对应页面会直接 403（超管直通，所以测不出来）。
+        -->
         SELECT DISTINCT m.permit
         FROM sys_menu m
         LEFT JOIN sys_role_menu rm ON rm.menu_id = m.id
         LEFT JOIN sys_user_role ur ON ur.role_id = rm.role_id
         WHERE ur.user_id = #{userId}
-          AND m.menu_type IN ('C', 'F')
+          AND m.menu_type IN ('M', 'C', 'F')
           AND m.permit IS NOT NULL
           AND m.del_flag = 0
           AND m.status = 0

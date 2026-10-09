@@ -17,6 +17,12 @@ import java.util.concurrent.TimeUnit;
 @Component
 public class RedisCache {
 
+    /**
+     * 登录态在 Redis 中的 key 前缀（完整 key 为 user:{userId}）。
+     * 登录写入、token 校验过滤器、账号/权限变更时的会话失效共用同一常量，避免前缀漂移。
+     */
+    public static final String LOGIN_USER_KEY = "user:";
+
     @Autowired
     public RedisTemplate redisTemplate;
 

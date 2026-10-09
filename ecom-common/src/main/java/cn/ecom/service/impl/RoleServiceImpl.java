@@ -9,6 +9,7 @@ import cn.ecom.mapper.RoleMenuMapper;
 import cn.ecom.mapper.UserRoleMapper;
 import cn.ecom.service.RoleService;
 import cn.ecom.utils.AppHttpCodeEnum;
+import cn.ecom.utils.RedisCache;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -27,10 +28,12 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements Ro
 
     private final RoleMenuMapper roleMenuMapper;
     private final UserRoleMapper userRoleMapper;
+    private final RedisCache redisCache;
 
-    public RoleServiceImpl(RoleMenuMapper roleMenuMapper, UserRoleMapper userRoleMapper) {
+    public RoleServiceImpl(RoleMenuMapper roleMenuMapper, UserRoleMapper userRoleMapper, RedisCache redisCache) {
         this.roleMenuMapper = roleMenuMapper;
         this.userRoleMapper = userRoleMapper;
+        this.redisCache = redisCache;
     }
 
     @Override
@@ -48,6 +51,8 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements Ro
         if (count != null && count > 0) {
             throw new BusinessException(AppHttpCodeEnum.PARAMETER_ERROR, "角色权限字符已存在");
         }
+        // 清掉占用该权限字符的已删角色（逻辑删除的行查询看不到，却仍占着 uk_role_key）
+        getBaseMapper().purgeDeletedByRoleKey(role.getRoleKey());
         role.setId(null);
         save(role);
     }
@@ -85,14 +90,23 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements Ro
     @Transactional
     public void assignMenus(Long roleId, List<Long> menuIds) {
         roleMenuMapper.delete(new LambdaQueryWrapper<RoleMenu>().eq(RoleMenu::getRoleId, roleId));
-        if (menuIds == null || menuIds.isEmpty()) {
-            return;
+        if (menuIds != null && !menuIds.isEmpty()) {
+            for (Long menuId : menuIds) {
+                RoleMenu roleMenu = new RoleMenu();
+                roleMenu.setRoleId(roleId);
+                roleMenu.setMenuId(menuId);
+                roleMenuMapper.insert(roleMenu);
+            }
         }
-        for (Long menuId : menuIds) {
-            RoleMenu roleMenu = new RoleMenu();
-            roleMenu.setRoleId(roleId);
-            roleMenu.setMenuId(menuId);
-            roleMenuMapper.insert(roleMenu);
+        // 菜单权限变了，持有该角色的用户登录态必须失效（否则权限要等 24h 才生效）
+        for (Long userId : userIdsOfRole(roleId)) {
+            redisCache.deleteObject(RedisCache.LOGIN_USER_KEY + userId);
         }
+    }
+
+    /** 持有该角色的用户 id 集合 */
+    private List<Long> userIdsOfRole(Long roleId) {
+        return userRoleMapper.selectList(new LambdaQueryWrapper<UserRole>().eq(UserRole::getRoleId, roleId))
+                .stream().map(UserRole::getUserId).distinct().collect(Collectors.toList());
     }
 }

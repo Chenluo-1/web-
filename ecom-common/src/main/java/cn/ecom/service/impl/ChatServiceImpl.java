@@ -19,7 +19,6 @@ import cn.ecom.service.SysConfigService;
 import cn.ecom.utils.AppHttpCodeEnum;
 import cn.ecom.utils.SecurityUtils;
 import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONArray;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -277,6 +276,10 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
 
     /** 追问单笔订单：第 nth 笔（1=最近一笔）；不足时提示并附全列表 */
     private String buildNthOrder(Long userId, int nth) {
+        if (nth < 1) {
+            // 「第 0 单」这类问法：直接说清而不是误导成"没有订单"
+            return "没有第 " + nth + " 单哦～可以问「我的订单」「最近一单」或「第三单」。";
+        }
         List<Order> orders = orderMapper.selectList(new LambdaQueryWrapper<Order>()
                 .eq(Order::getUserId, userId)
                 .orderByDesc(Order::getId)
@@ -479,9 +482,11 @@ public class ChatServiceImpl extends ServiceImpl<ChatLogMapper, ChatLog> impleme
         double score = similarity(query, knowledge.getQuestion());
         if (StringUtils.hasText(knowledge.getSimilarQuestions())) {
             try {
-                JSONArray similar = JSON.parseArray(knowledge.getSimilarQuestions());
+                // 指定目标类型为 String：相似问法是后台可编辑的数据，若按 Object 解析，
+                // 开启的 fastjson autotype 会尝试实例化载荷里的 @type 类（反序列化风险）
+                List<String> similar = JSON.parseArray(knowledge.getSimilarQuestions(), String.class);
                 for (int i = 0; i < similar.size(); i++) {
-                    score = Math.max(score, similarity(query, similar.getString(i)));
+                    score = Math.max(score, similarity(query, similar.get(i)));
                 }
             } catch (Exception ignored) {
                 // 相似问法 JSON 异常时忽略，仅用标准问法

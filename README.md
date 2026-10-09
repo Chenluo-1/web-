@@ -22,7 +22,10 @@ ecom/
 │  ├─ ecom.sql           全量脚本：31 张表 + 初始数据（菜单/角色/类目树/知识库）
 │  ├─ data_generator.py  演示数据生成器（可选）
 │  ├─ data.sql           演示数据：50 商品 / 每商品 2-6 SKU / 200 用户 / 500 订单
-│  └─ upload_images.py   演示配图上传（可选，生成 data_images.sql）
+│  ├─ upload_images.py   演示配图上传（早期版：纯色渐变占位图）
+│  ├─ add_new_products.py    新增商品数据（12 SPU / 44 SKU，可重复执行）
+│  ├─ gen_product_images.py        配图生成（代码绘制：类目主题卡片，无外部依赖）
+│  └─ fetch_unsplash_images.py     配图抓取（Unsplash 按品名搜真实商品照）
 ├─ deploy/nginx.conf     生产部署：静态资源 + /api 反向代理
 └─ docs/                 开发进度 / 需求拆分 / 设计文档
 ```
@@ -47,8 +50,21 @@ ecom/
 mysql -uroot -p123456 -e "CREATE DATABASE IF NOT EXISTS ecom DEFAULT CHARSET utf8mb4;"
 mysql -uroot -p123456 ecom < sql/ecom.sql        # 建表 + 基础数据
 mysql -uroot -p123456 ecom < sql/data.sql        # 演示数据（50 商品 / 200 用户 / 500 订单）
-# 可选：商品配图（先启动后端 + MinIO，再执行）
-python sql/upload_images.py && mysql -uroot -p123456 ecom < sql/data_images.sql
+
+# 可选：新增商品（12 SPU / 44 SKU，先清后插、可重复执行）
+python sql/add_new_products.py
+
+# 商品配图（二选一，先启动后端 8888 + MinIO 9000）
+# A. 真实商品照片（推荐）：Unsplash 按品名搜索 → 62 商品主图 + 190 SKU 图 + 商品图集
+#    需先配置 Access Key（见下方 FAQ），免费版 50 次/小时，脚本按类目合并搜索词并缓存结果
+python sql/fetch_unsplash_images.py --upload
+mysql -uroot -p123456 ecom < sql/_images_backfill.sql
+
+# B. 代码绘制卡片（无网络依赖，离线可用）
+# python sql/gen_product_images.py --upload && mysql -uroot -p123456 ecom < sql/_images_backfill.sql
+
+# 早期纯色渐变占位图方案（保留兼容，已被上面两个取代）
+# python sql/upload_images.py && mysql -uroot -p123456 ecom < sql/data_images.sql
 ```
 
 **2. 启动中间件**
@@ -109,6 +125,10 @@ nginx -s reload
 | 商品图片不显示 | MinIO 未启动或图片未上传（执行 sql/upload_images.py 后导入 data_images.sql） |
 | 看板趋势/排行无数据 | 先执行 data.sql（含 30 天汇总），或后端运行后调用「手动重算」 |
 | 演示数据被改乱 | 重新执行 `mysql -uroot -p123456 ecom < sql/data.sql` 即可复位 |
+| 新增的 12 个商品（1051-1062）不见了 | `sql/data.sql` 是「先清后插」的完整复位脚本，会清空 `ec_product`。按顺序重跑 `python sql/add_new_products.py` → `python sql/gen_product_images.py --upload` → 导入 `sql/_images_backfill.sql` 即可恢复 |
+| 商品图是纯色块 / 想换配图方案 | 两套脚本任选：`fetch_unsplash_images.py`（Unsplash 按商品名搜真实照片，推荐）或 `gen_product_images.py`（代码绘制卡片，离线可用）。原图 URL 备份在 `sql/_images_backup.sql`，可一键回滚 |
+| 配图脚本要怎么配 Unsplash Key | 在 https://unsplash.com/developers 建应用后，把 **Access Key** 写入 `sql/_unsplash_key.txt`（已 gitignore），或设环境变量 `UNSPLASH_ACCESS_KEY`。注意仓库里不要提交该文件 |
+| 抓图脚本报额度用尽 / 下载超时 | 免费版 50 次/小时。脚本已做「搜索词合并 + 结果缓存 + 图片缓存 + 上传记录」，**直接重跑即续传**，已完成的搜索与上传都会跳过，不会重复消耗额度 |
 | 客服没有 AI 回答（直接转人工） | 大模型兜底需要 `application.yml` 里 `deepseek.api-key`；留空或调用失败时自动降级为「转人工」。也可用 `ec_sys_config.chat_llm_enabled`（0 关 1 开）一键切换规则版/大模型版 |
 | Windows 控制台中文乱码 | 终端编码问题，不影响数据（库/页面均为 utf8mb4） |
 

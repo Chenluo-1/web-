@@ -31,7 +31,7 @@ import java.util.concurrent.TimeUnit;
 public class LoginServiceImpl implements LoginService {
 
     /** Redis 中登录态的 key 前缀 */
-    private static final String LOGIN_USER_KEY = "user:";
+    private static final String LOGIN_USER_KEY = RedisCache.LOGIN_USER_KEY;
 
     private final AuthenticationManager authenticationManager;
     private final RedisCache redisCache;

@@ -26,8 +26,8 @@ import java.io.IOException;
 @Component
 public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
 
-    /** Redis 中登录态的 key 前缀 */
-    private static final String LOGIN_USER_KEY = "user:";
+    /** Redis 中登录态的 key 前缀（与登录、会话失效共用） */
+    private static final String LOGIN_USER_KEY = RedisCache.LOGIN_USER_KEY;
 
     private final RedisCache redisCache;
 

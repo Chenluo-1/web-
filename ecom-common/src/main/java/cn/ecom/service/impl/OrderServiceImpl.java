@@ -36,6 +36,8 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
@@ -83,12 +85,13 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
     private final SysConfigService sysConfigService;
     private final LogisticsService logisticsService;
     private final RefundMapper refundMapper;
+    private final TransactionTemplate transactionTemplate;
 
     public OrderServiceImpl(AddressMapper addressMapper, SkuMapper skuMapper, CouponMapper couponMapper,
                             UserCouponMapper userCouponMapper, OrderItemMapper orderItemMapper,
                             OrderStatusLogMapper statusLogMapper, CartService cartService,
                             SysConfigService sysConfigService, LogisticsService logisticsService,
-                            RefundMapper refundMapper) {
+                            RefundMapper refundMapper, PlatformTransactionManager transactionManager) {
         this.addressMapper = addressMapper;
         this.skuMapper = skuMapper;
         this.couponMapper = couponMapper;
@@ -99,6 +102,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         this.sysConfigService = sysConfigService;
         this.logisticsService = logisticsService;
         this.refundMapper = refundMapper;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
     @Override
@@ -297,21 +301,36 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
                 .lt(Order::getExpireTime, now));
         int count = 0;
         for (Order order : expired) {
-            // 条件更新互斥：与支付并发时只有一个能成功
-            int rows = getBaseMapper().update(null, new LambdaUpdateWrapper<Order>()
-                    .eq(Order::getOrderNo, order.getOrderNo())
-                    .eq(Order::getStatus, STATUS_UNPAID)
-                    .set(Order::getStatus, STATUS_CANCELED)
-                    .set(Order::getCancelTime, now));
-            if (rows == 0) {
-                continue;
+            try {
+                // 逐单独立事务：状态流转与资源回补同生共死，避免「订单已取消但库存没还回」
+                // 的永久泄漏（回补失败时整笔回滚，下一轮扫描会重试）
+                Boolean canceled = transactionTemplate.execute(status -> cancelOneExpired(order));
+                if (Boolean.TRUE.equals(canceled)) {
+                    count++;
+                    log.info("订单超时取消：{}", order.getOrderNo());
+                }
+            } catch (Exception e) {
+                // 单笔失败不中断同批其他订单
+                log.error("订单 {} 超时取消失败，本轮跳过（下轮重试）", order.getOrderNo(), e);
             }
-            releaseOrderResources(order);
-            writeStatusLog(order.getOrderNo(), STATUS_UNPAID, STATUS_CANCELED, 3, null, "超时未支付，自动取消");
-            count++;
-            log.info("订单超时取消：{}", order.getOrderNo());
         }
         return count;
+    }
+
+    /** 取消单笔超时订单（需在事务中调用）：条件更新互斥 + 回补库存/退券 + 状态日志 */
+    private boolean cancelOneExpired(Order order) {
+        int rows = getBaseMapper().update(null, new LambdaUpdateWrapper<Order>()
+                .eq(Order::getOrderNo, order.getOrderNo())
+                .eq(Order::getStatus, STATUS_UNPAID)
+                .set(Order::getStatus, STATUS_CANCELED)
+                .set(Order::getCancelTime, new Date()));
+        if (rows == 0) {
+            // 与支付并发时只有一个能成功；已被支付则本单不动
+            return false;
+        }
+        releaseOrderResources(order);
+        writeStatusLog(order.getOrderNo(), STATUS_UNPAID, STATUS_CANCELED, 3, null, "超时未支付，自动取消");
+        return true;
     }
 
     // ---------- P4：状态机 + 发货/收货/退款 ----------

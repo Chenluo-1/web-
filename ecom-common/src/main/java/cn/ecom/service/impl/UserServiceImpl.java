@@ -11,6 +11,7 @@ import cn.ecom.mapper.UserMapper;
 import cn.ecom.mapper.UserRoleMapper;
 import cn.ecom.service.UserService;
 import cn.ecom.utils.AppHttpCodeEnum;
+import cn.ecom.utils.RedisCache;
 import cn.ecom.utils.SecurityUtils;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -31,15 +32,20 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     /** 新增用户未填密码时的默认密码 */
     private static final String DEFAULT_PASSWORD = "123456";
+    /** 密码最小长度（注册/重置/修改统一口径） */
+    private static final int MIN_PASSWORD_LENGTH = 6;
 
     private final PasswordEncoder passwordEncoder;
     private final UserRoleMapper userRoleMapper;
     private final RoleMapper roleMapper;
+    private final RedisCache redisCache;
 
-    public UserServiceImpl(PasswordEncoder passwordEncoder, UserRoleMapper userRoleMapper, RoleMapper roleMapper) {
+    public UserServiceImpl(PasswordEncoder passwordEncoder, UserRoleMapper userRoleMapper, RoleMapper roleMapper,
+                           RedisCache redisCache) {
         this.passwordEncoder = passwordEncoder;
         this.userRoleMapper = userRoleMapper;
         this.roleMapper = roleMapper;
+        this.redisCache = redisCache;
     }
 
     @Override
@@ -83,6 +89,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (count != null && count > 0) {
             throw new BusinessException(AppHttpCodeEnum.USERNAME_EXIST);
         }
+        // 清掉占用该登录名的已删用户（逻辑删除的行查询看不到，却仍占着 uk_username）
+        getBaseMapper().purgeDeletedByUsername(userDto.getUsername());
         String rawPassword = StringUtils.hasText(userDto.getPassword()) ? userDto.getPassword() : DEFAULT_PASSWORD;
         userDto.setPassword(passwordEncoder.encode(rawPassword));
         userDto.setId(null);
@@ -104,6 +112,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (count != null && count > 0) {
             throw new BusinessException(AppHttpCodeEnum.USERNAME_EXIST);
         }
+        // 同 addUser：释放被已删用户占用的登录名
+        getBaseMapper().purgeDeletedByUsername(user.getUsername());
         Role memberRole = roleMapper.selectOne(new LambdaQueryWrapper<Role>().eq(Role::getRoleKey, "member"));
         if (memberRole == null) {
             throw new BusinessException(AppHttpCodeEnum.SYSTEM_ERROR, "消费者角色未初始化");
@@ -146,6 +156,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (!StringUtils.hasText(passwordDto.getNewPassword())) {
             throw new BusinessException(AppHttpCodeEnum.PARAMETER_ERROR, "新密码不能为空");
         }
+        if (passwordDto.getNewPassword().length() < MIN_PASSWORD_LENGTH) {
+            throw new BusinessException(AppHttpCodeEnum.PARAMETER_ERROR, "密码至少 " + MIN_PASSWORD_LENGTH + " 位");
+        }
+        // 改密后强制该用户重新登录，避免旧会话继续持有旧凭据
+        redisCache.deleteObject(RedisCache.LOGIN_USER_KEY + passwordDto.getId());
         updateById(new User()
                 .setId(passwordDto.getId())
                 .setPassword(passwordEncoder.encode(passwordDto.getNewPassword())));
@@ -165,6 +180,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (!StringUtils.hasText(passwordDto.getNewPassword())) {
             throw new BusinessException(AppHttpCodeEnum.PARAMETER_ERROR, "新密码不能为空");
         }
+        if (passwordDto.getNewPassword().length() < MIN_PASSWORD_LENGTH) {
+            throw new BusinessException(AppHttpCodeEnum.PARAMETER_ERROR, "密码至少 " + MIN_PASSWORD_LENGTH + " 位");
+        }
+        redisCache.deleteObject(RedisCache.LOGIN_USER_KEY + userId);
         updateById(new User()
                 .setId(userId)
                 .setPassword(passwordEncoder.encode(passwordDto.getNewPassword())));
@@ -175,6 +194,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public void deleteUsers(List<Long> ids) {
         removeByIds(ids);
         userRoleMapper.delete(new LambdaQueryWrapper<UserRole>().in(UserRole::getUserId, ids));
+        // 账号已删则登录态必须一起失效，否则被删账号的 token 还能用满 24 小时
+        for (Long id : ids) {
+            redisCache.deleteObject(RedisCache.LOGIN_USER_KEY + id);
+        }
     }
 
     @Override
@@ -195,5 +218,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             userRole.setRoleId(roleId);
             userRoleMapper.insert(userRole);
         }
+        // 角色变了，权限缓存必须失效（否则新权限要等登录态过期才生效）
+        redisCache.deleteObject(RedisCache.LOGIN_USER_KEY + userId);
     }
 }

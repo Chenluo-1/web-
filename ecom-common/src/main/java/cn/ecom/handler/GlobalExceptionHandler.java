@@ -43,7 +43,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseResult<Void> handleException(Exception e) {
+        // 原始异常信息可能含 SQL、表名、类名等内部细节，只进日志，不外传
         log.error("系统异常", e);
-        return ResponseResult.errorResult(AppHttpCodeEnum.SYSTEM_ERROR, e.getMessage());
+        return ResponseResult.errorResult(AppHttpCodeEnum.SYSTEM_ERROR, "系统繁忙，请稍后重试");
     }
 }
