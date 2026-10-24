@@ -19,7 +19,10 @@ import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 优惠券服务实现
@@ -38,11 +41,35 @@ public class CouponServiceImpl extends ServiceImpl<CouponMapper, Coupon> impleme
     @Override
     public List<Coupon> listAvailable() {
         Date now = new Date();
-        return list(new LambdaQueryWrapper<Coupon>()
+        List<Coupon> coupons = list(new LambdaQueryWrapper<Coupon>()
                 .eq(Coupon::getStatus, 0)
                 .le(Coupon::getStartTime, now)
                 .ge(Coupon::getEndTime, now)
                 .orderByAsc(Coupon::getThresholdAmount));
+        markReceived(coupons);
+        return coupons;
+    }
+
+    /**
+     * 标记当前用户在这批券上是否已领满：一次 in 查询，避免前端逐个试探。
+     * 领券中心据此直接展示「已领取」，点击时也能先拦一层。
+     */
+    private void markReceived(List<Coupon> coupons) {
+        if (coupons == null || coupons.isEmpty()) {
+            return;
+        }
+        List<Long> couponIds = coupons.stream().map(Coupon::getId).collect(Collectors.toList());
+        List<UserCoupon> mine = userCouponMapper.selectList(new LambdaQueryWrapper<UserCoupon>()
+                .eq(UserCoupon::getUserId, SecurityUtils.getUserId())
+                .in(UserCoupon::getCouponId, couponIds));
+        Map<Long, Long> owned = new HashMap<>();
+        for (UserCoupon userCoupon : mine) {
+            owned.merge(userCoupon.getCouponId(), 1L, Long::sum);
+        }
+        for (Coupon coupon : coupons) {
+            int limit = coupon.getPerUserLimit() == null || coupon.getPerUserLimit() < 1 ? 1 : coupon.getPerUserLimit();
+            coupon.setReceived(owned.getOrDefault(coupon.getId(), 0L) >= limit);
+        }
     }
 
     @Override
@@ -70,7 +97,9 @@ public class CouponServiceImpl extends ServiceImpl<CouponMapper, Coupon> impleme
                 .eq(UserCoupon::getCouponId, couponId));
         int limit = coupon.getPerUserLimit() == null || coupon.getPerUserLimit() < 1 ? 1 : coupon.getPerUserLimit();
         if (received != null && received >= limit) {
-            throw new BusinessException(AppHttpCodeEnum.COUPON_RECEIVED_LIMIT);
+            String msg = limit <= 1 ? "该优惠券您已领取，不能重复领取"
+                    : "该优惠券每人限领 " + limit + " 张，您已领满";
+            throw new BusinessException(AppHttpCodeEnum.COUPON_RECEIVED_LIMIT, msg);
         }
         userCouponMapper.insert(new UserCoupon()
                 .setUserId(userId)

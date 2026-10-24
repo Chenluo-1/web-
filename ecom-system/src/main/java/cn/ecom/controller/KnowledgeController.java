@@ -31,14 +31,14 @@ public class KnowledgeController {
     }
 
     @GetMapping
-    @PreAuthorize("@ps.hasPermission('chat:manage')")
+    @PreAuthorize("@ss.hasPermission('chat:manage')")
     public ResponseResult<Page<Knowledge>> selectByPage(Integer pageNum, Integer pageSize,
                                                         String question, Integer status) {
         return ResponseResult.okResult(knowledgeService.selectByPage(pageNum, pageSize, question, status));
     }
 
     @OperLog(module = "知识库", type = "新增")
-    @PreAuthorize("@ps.hasPermission('knowledge:add')")
+    @PreAuthorize("@ss.hasPermission('knowledge:add')")
     @PostMapping
     public ResponseResult<Void> insert(@RequestBody Knowledge knowledge) {
         knowledgeService.addKnowledge(knowledge);
@@ -46,7 +46,7 @@ public class KnowledgeController {
     }
 
     @OperLog(module = "知识库", type = "修改")
-    @PreAuthorize("@ps.hasPermission('knowledge:edit')")
+    @PreAuthorize("@ss.hasPermission('knowledge:edit')")
     @PutMapping
     public ResponseResult<Void> update(@RequestBody Knowledge knowledge) {
         knowledgeService.updateKnowledge(knowledge);
@@ -54,7 +54,7 @@ public class KnowledgeController {
     }
 
     @OperLog(module = "知识库", type = "删除")
-    @PreAuthorize("@ps.hasPermission('knowledge:del')")
+    @PreAuthorize("@ss.hasPermission('knowledge:del')")
     @DeleteMapping("/{ids}")
     public ResponseResult<Void> delete(@PathVariable("ids") List<Long> ids) {
         knowledgeService.deleteKnowledges(ids);

@@ -1,7 +1,7 @@
 <template>
   <el-container class="layout">
     <el-aside width="210px" class="aside">
-      <div class="logo">电商智能系统</div>
+      <div class="logo" title="回到首页" @click="$router.push('/home')">电商智能系统</div>
       <el-menu
         :default-active="activePath"
         router
@@ -161,6 +161,12 @@ const doLogout = async () => {
   font-size: 17px;
   font-weight: bold;
   background-color: #263445;
+  cursor: pointer;
+  transition: background-color 0.18s ease;
+}
+
+.logo:hover {
+  background-color: #1f2c3a;
 }
 
 .aside :deep(.el-menu) {

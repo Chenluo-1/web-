@@ -33,42 +33,42 @@ public class DashboardController {
 
     /** 今日实时指标（Redis 缓存 5 分钟；GMV 支付成功口径） */
     @GetMapping("/realtime")
-    @PreAuthorize("@ps.hasPermission('dashboard:market')")
+    @PreAuthorize("@ss.hasPermission('dashboard:market')")
     public ResponseResult<RealtimeVo> realtime() {
         return ResponseResult.okResult(dashboardService.getRealtime());
     }
 
     /** 销售趋势（dimension=day/week/month，含环比同比） */
     @GetMapping("/salesTrend")
-    @PreAuthorize("@ps.hasPermission('dashboard:market')")
+    @PreAuthorize("@ss.hasPermission('dashboard:market')")
     public ResponseResult<TrendVo> salesTrend(@RequestParam(defaultValue = "day") String dimension) {
         return ResponseResult.okResult(dashboardService.getSalesTrend(dimension));
     }
 
     /** 商品排行榜（近 30 天热销/滞销 TOP10） */
     @GetMapping("/productRank")
-    @PreAuthorize("@ps.hasPermission('dashboard:product')")
+    @PreAuthorize("@ss.hasPermission('dashboard:product')")
     public ResponseResult<DashboardVos.RankResult> productRank() {
         return ResponseResult.okResult(dashboardService.getProductRank());
     }
 
     /** 类目销售占比（近 30 天，一级类目） */
     @GetMapping("/categoryAnalysis")
-    @PreAuthorize("@ps.hasPermission('dashboard:product')")
+    @PreAuthorize("@ss.hasPermission('dashboard:product')")
     public ResponseResult<List<DashboardVos.CategoryShare>> categoryAnalysis() {
         return ResponseResult.okResult(dashboardService.getCategoryAnalysis());
     }
 
     /** 订单漏斗（近 7 天：曝光→点击→加购→成交） */
     @GetMapping("/orderFunnel")
-    @PreAuthorize("@ps.hasPermission('dashboard:market')")
+    @PreAuthorize("@ss.hasPermission('dashboard:market')")
     public ResponseResult<DashboardVos.Funnel> orderFunnel() {
         return ResponseResult.okResult(dashboardService.getOrderFunnel());
     }
 
     /** 手动重算最近 N 天汇总（演示/应急用；每天 1:30 自动算昨天） */
     @OperLog(module = "数据看板", type = "重算汇总")
-    @PreAuthorize("@ps.hasPermission('dashboard:refresh')")
+    @PreAuthorize("@ss.hasPermission('dashboard:refresh')")
     @PostMapping("/aggregate")
     public ResponseResult<Integer> aggregate(@RequestParam(defaultValue = "7") Integer days) {
         return ResponseResult.okResult(dashboardService.aggregateStat(days));

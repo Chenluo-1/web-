@@ -29,21 +29,21 @@ public class ForecastController {
 
     /** 有预测数据的 SKU 列表 */
     @GetMapping("/skus")
-    @PreAuthorize("@ps.hasPermission('stock:forecast')")
+    @PreAuthorize("@ss.hasPermission('stock:forecast')")
     public ResponseResult<List<Map<String, Object>>> skus() {
         return ResponseResult.okResult(salesForecastService.listForecastSkus());
     }
 
     /** 单个 SKU：近 30 天实际 + 未来 28 天预测 */
     @GetMapping("/{skuId}")
-    @PreAuthorize("@ps.hasPermission('stock:forecast')")
+    @PreAuthorize("@ss.hasPermission('stock:forecast')")
     public ResponseResult<ForecastVo> data(@PathVariable Long skuId) {
         return ResponseResult.okResult(salesForecastService.getForecastData(skuId));
     }
 
     /** 手动重跑预测（演示用；每日 2:00 也会自动跑） */
     @OperLog(module = "销量预测", type = "手动生成")
-    @PreAuthorize("@ps.hasPermission('stock:forecast:generate')")
+    @PreAuthorize("@ss.hasPermission('stock:forecast:generate')")
     @PostMapping("/generate")
     public ResponseResult<Integer> generate() {
         return ResponseResult.okResult(salesForecastService.generateForecasts());

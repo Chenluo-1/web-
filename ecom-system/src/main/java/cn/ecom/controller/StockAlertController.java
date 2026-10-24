@@ -28,7 +28,7 @@ public class StockAlertController {
 
     /** 预警分页（按类型/状态筛选） */
     @GetMapping
-    @PreAuthorize("@ps.hasPermission('stock:alert')")
+    @PreAuthorize("@ss.hasPermission('stock:alert')")
     public ResponseResult<Page<StockAlert>> selectByPage(Integer pageNum, Integer pageSize,
                                                          Integer alertType, Integer status) {
         return ResponseResult.okResult(stockAlertService.selectByPage(pageNum, pageSize, alertType, status));
@@ -42,7 +42,7 @@ public class StockAlertController {
 
     /** 手动执行一次扫描（应急/演示用） */
     @OperLog(module = "库存预警", type = "手动扫描")
-    @PreAuthorize("@ps.hasPermission('stock:alert:scan')")
+    @PreAuthorize("@ss.hasPermission('stock:alert:scan')")
     @PostMapping("/scan")
     public ResponseResult<Integer> scan() {
         return ResponseResult.okResult(stockAlertService.scanAndCreateAlerts());
@@ -50,7 +50,7 @@ public class StockAlertController {
 
     /** 标记已处理 */
     @OperLog(module = "库存预警", type = "标记已处理")
-    @PreAuthorize("@ps.hasPermission('stock:alert:handle')")
+    @PreAuthorize("@ss.hasPermission('stock:alert:handle')")
     @PutMapping("/{id}/handle")
     public ResponseResult<Void> handle(@PathVariable Long id) {
         stockAlertService.handle(id);

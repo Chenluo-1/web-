@@ -26,6 +26,9 @@ public interface UserService extends IService<User> {
     /** 修改用户（不含密码），并重分配角色 */
     void updateUser(UserDto userDto);
 
+    /** 启用/禁用账号（0 正常 1 停用；停用同时失效其登录态） */
+    void updateStatus(Long id, Integer status);
+
     /** 管理员重置密码 */
     void resetPassword(PasswordDto passwordDto);
 

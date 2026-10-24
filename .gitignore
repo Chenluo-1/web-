@@ -17,6 +17,9 @@ __pycache__/
 sql/_imgcache/
 sql/_unsplash_key.txt
 sql/_pilot*/
+sql/_live_data.sql
+sql/_bulk_data.sql
+sql/_fix_food_titles.sql
 
 # --- IDE ---
 .idea/

@@ -38,14 +38,14 @@ public class ChatController {
 
     /** 会话记录 */
     @GetMapping("/logs")
-    @PreAuthorize("@ps.hasPermission('chat:manage')")
+    @PreAuthorize("@ss.hasPermission('chat:manage')")
     public ResponseResult<Page<ChatLog>> logs(Integer pageNum, Integer pageSize, Integer isTransfer) {
         return ResponseResult.okResult(chatService.selectLogsByPage(pageNum, pageSize, isTransfer));
     }
 
     /** 待补充问题（转人工且仍匹配不到知识的） */
     @GetMapping("/pending")
-    @PreAuthorize("@ps.hasPermission('chat:manage')")
+    @PreAuthorize("@ss.hasPermission('chat:manage')")
     public ResponseResult<List<PendingVo>> pending() {
         return ResponseResult.okResult(chatService.listPending());
     }

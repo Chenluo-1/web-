@@ -2,6 +2,7 @@ package cn.ecom.domain.pojo;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.AllArgsConstructor;
@@ -62,4 +63,11 @@ public class Coupon implements Serializable {
 
     @TableLogic
     private Integer delFlag;
+
+    /**
+     * 当前登录用户是否已领满（领券列表用，不落库）。
+     * 领券中心据此把按钮置为「已领取」，避免点下去才报错。
+     */
+    @TableField(exist = false)
+    private Boolean received;
 }

@@ -56,13 +56,13 @@ public class CouponController {
 
     /** 分页查询券模板 */
     @GetMapping
-    @PreAuthorize("@ps.hasPermission('coupon:manage')")
+    @PreAuthorize("@ss.hasPermission('coupon:manage')")
     public ResponseResult<Page<Coupon>> selectByPage(Integer pageNum, Integer pageSize) {
         return ResponseResult.okResult(couponService.selectByPage(pageNum, pageSize));
     }
 
     @OperLog(module = "优惠券管理", type = "新增")
-    @PreAuthorize("@ps.hasPermission('coupon:add')")
+    @PreAuthorize("@ss.hasPermission('coupon:add')")
     @PostMapping
     public ResponseResult<Void> insert(@RequestBody Coupon coupon) {
         couponService.addCoupon(coupon);
@@ -70,7 +70,7 @@ public class CouponController {
     }
 
     @OperLog(module = "优惠券管理", type = "修改")
-    @PreAuthorize("@ps.hasPermission('coupon:edit')")
+    @PreAuthorize("@ss.hasPermission('coupon:edit')")
     @PutMapping
     public ResponseResult<Void> update(@RequestBody Coupon coupon) {
         couponService.updateCoupon(coupon);
@@ -78,7 +78,7 @@ public class CouponController {
     }
 
     @OperLog(module = "优惠券管理", type = "删除")
-    @PreAuthorize("@ps.hasPermission('coupon:del')")
+    @PreAuthorize("@ss.hasPermission('coupon:del')")
     @DeleteMapping("/{ids}")
     public ResponseResult<Void> delete(@PathVariable("ids") List<Long> ids) {
         couponService.deleteCoupons(ids);

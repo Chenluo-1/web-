@@ -38,6 +38,7 @@ public interface OrderItemMapper extends BaseMapper<OrderItem> {
     @Select("SELECT i.product_id AS productId, i.sku_id AS skuId, SUM(i.quantity) AS qty, " +
             "SUM(i.subtotal) AS amount " +
             "FROM ec_order_item i JOIN ec_order o ON o.order_no = i.order_no " +
+            "JOIN ec_product p ON p.id = i.product_id AND p.del_flag = 0 " +
             "WHERE o.status IN (1,2,3,5) AND o.pay_time >= #{from} AND o.pay_time < #{to} " +
             "AND o.del_flag = 0 AND i.del_flag = 0 " +
             "GROUP BY i.product_id, i.sku_id")

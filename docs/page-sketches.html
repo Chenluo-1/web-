@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>ecom-ui 页面设计草图</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #eef1f5; font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif; padding: 28px; }
+  .sheet {
+    width: 1120px; background: #fff; margin: 0 auto 34px; padding: 22px 26px 26px;
+    border: 1px solid #d6dbe3; border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(20,30,50,.06);
+  }
+  .sheet-head { display: flex; align-items: baseline; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid #e6eaf0; margin-bottom: 16px; }
+  .no { font-size: 13px; color: #8a94a6; letter-spacing: 1px; }
+  .ttl { font-size: 19px; font-weight: 700; color: #1f2937; }
+  .file { margin-left: auto; font-size: 12px; color: #9aa4b2; font-family: Consolas, monospace; }
+  .canvas { position: relative; background: #fafbfc; border: 1px dashed #cdd5e0; border-radius: 4px; }
+  .note { margin-top: 12px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .note div { font-size: 12px; color: #5b6676; background: #f5f7fa; border-left: 2px solid #c3ccd9; padding: 6px 8px; line-height: 1.55; }
+  .note b { color: #2f3b4d; font-weight: 600; }
+  .tagcode { font-family: Consolas, monospace; background: #eef2f7; padding: 1px 4px; border-radius: 3px; color: #47607f; }
+  /* wireframe primitives */
+  .box { border: 1px solid #b9c3d1; background: #fff; border-radius: 3px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; height: 30px; padding: 0 14px; border: 1px solid #b9c3d1; border-radius: 3px; font-size: 12px; color: #47536b; background: #fff; }
+  .btn.pri { background: #4a86c8; border-color: #4a86c8; color: #fff; }
+  .btn.danger { color: #c0564f; border-color: #d8b3b0; }
+  .inp { height: 30px; border: 1px solid #c2cbd8; border-radius: 3px; background: #fff; display: flex; align-items: center; padding: 0 9px; font-size: 12px; color: #a9b2c0; }
+  .lbl { font-size: 12px; color: #5b6676; }
+  .ph { color: #aab3c0; }
+  .dash { border-style: dashed !important; }
+  .gray { background: #f0f3f7; }
+  .hatch { background: repeating-linear-gradient(45deg, #f2f5f9, #f2f5f9 7px, #e9eef5 7px, #e9eef5 14px); }
+  .mono { font-family: Consolas, monospace; }
+</style>
+</head>
+<body>
+
+<!-- ================= 草图1 登录页 ================= -->
+<section class="sheet" id="sheet1">
+  <div class="sheet-head">
+    <span class="no">草图 01</span>
+    <span class="ttl">登录页</span>
+    <span class="file">ecom-ui/src/views/Login.vue</span>
+  </div>
+  <div class="canvas" style="height:560px; display:flex; align-items:center; justify-content:center;">
+    <div class="box" style="width:400px; padding:0; box-shadow:0 4px 16px rgba(30,45,70,.10);">
+      <div style="padding:26px 30px 18px; text-align:center; border-bottom:1px solid #e8edf4;">
+        <div style="font-size:21px; font-weight:700; color:#22303f; letter-spacing:1px;">电商智能系统</div>
+        <div style="font-size:12px; color:#93a0b1; margin-top:7px;">店铺运营 + 消费者前台</div>
+      </div>
+      <div style="padding:22px 30px 8px;">
+        <div class="lbl" style="margin-bottom:6px;">账号</div>
+        <div class="inp" style="margin-bottom:14px;">请输入账号</div>
+        <div class="lbl" style="margin-bottom:6px;">密码</div>
+        <div class="inp" style="margin-bottom:18px;">请输入密码</div>
+        <div class="btn pri" style="width:100%; height:36px; font-size:13px;">登 录</div>
+        <div style="display:flex; justify-content:center; gap:4px; margin:14px 0 6px; font-size:12px; color:#98a3b3;">
+          <span>没有账号？</span><span style="color:#4a86c8;">立即注册</span>
+        </div>
+      </div>
+      <div style="border-top:1px solid #e8edf4; margin-top:8px; padding:10px 30px; font-size:11px; color:#a8b2c0; display:flex; justify-content:space-between;">
+        <span>admin / reader01</span><span class="mono">POST /login</span>
+      </div>
+    </div>
+    <div style="position:absolute; left:44px; top:44px; font-size:12px; color:#9aa4b2; line-height:1.9;">
+      <div>表单字段名与后端 DTO 一致</div>
+      <div>提交期间按钮 loading 防重复提交</div>
+      <div>校验失败 → 行内红字提示</div>
+    </div>
+    <div style="position:absolute; right:44px; bottom:40px; font-size:12px; color:#9aa4b2; text-align:right; line-height:1.9;">
+      <div>成功 → 写 store + 跳 /home</div>
+      <div>失败 → Message 全局提示</div>
+    </div>
+  </div>
+  <div class="note">
+    <div><b>布局：</b>单列居中卡片，一屏一个主任务</div>
+    <div><b>配色：</b>主色 #4A86C8，仅用于主按钮与链接</div>
+    <div><b>一致性：</b>输入框/按钮圆角、高度统一 30/36px</div>
+    <div><b>反馈：</b>loading、错误提示、回车提交</div>
+  </div>
+</section>
+
+<!-- ================= 草图2 主布局 ================= -->
+<section class="sheet" id="sheet2">
+  <div class="sheet-head">
+    <span class="no">草图 02</span>
+    <span class="ttl">主布局（顶栏 + 侧栏 + 内容区）</span>
+    <span class="file">ecom-ui/src/views/Menu.vue</span>
+  </div>
+  <div class="canvas" style="height:560px; display:flex;">
+    <!-- 侧栏 -->
+    <div style="width:210px; background:#304156; border-radius:3px 0 0 3px; display:flex; flex-direction:column;">
+      <div style="height:56px; display:flex; align-items:center; padding:0 16px; color:#fff; font-size:14px; font-weight:600; border-bottom:1px solid rgba(255,255,255,.08);">电商智能系统</div>
+      <div style="padding:10px 0;">
+        <div style="padding:9px 16px; color:#bfcbd9; font-size:13px; display:flex; justify-content:space-between;"><span>商品管理</span><span style="font-size:10px;">▾</span></div>
+        <div style="padding:8px 16px 8px 32px; color:#409eff; font-size:12px; background:rgba(64,158,255,.12); border-left:3px solid #409eff;">商品列表</div>
+        <div style="padding:8px 16px 8px 32px; color:#bfcbd9; font-size:12px;">商品类目</div>
+        <div style="padding:9px 16px; color:#bfcbd9; font-size:13px; display:flex; justify-content:space-between;"><span>订单管理</span><span style="font-size:10px;">▾</span></div>
+        <div style="padding:8px 16px 8px 32px; color:#bfcbd9; font-size:12px;">订单列表</div>
+        <div style="padding:8px 16px 8px 32px; color:#bfcbd9; font-size:12px;">优惠券</div>
+        <div style="padding:9px 16px; color:#bfcbd9; font-size:13px; display:flex; justify-content:space-between;"><span>系统管理</span><span style="font-size:10px;">▾</span></div>
+        <div style="padding:8px 16px 8px 32px; color:#bfcbd9; font-size:12px;">用户管理</div>
+        <div style="padding:8px 16px 8px 32px; color:#bfcbd9; font-size:12px;">角色管理</div>
+      </div>
+      <div style="margin-top:auto; padding:12px 16px; font-size:11px; color:#7f8fa6; border-top:1px solid rgba(255,255,255,.08);">菜单由 /getRouters 动态渲染</div>
+    </div>
+    <!-- 右侧 -->
+    <div style="flex:1; display:flex; flex-direction:column;">
+      <div style="height:56px; border-bottom:1px solid #e6eaf0; background:#fff; display:flex; align-items:center; padding:0 20px;">
+        <div style="font-size:11px; color:#9aa4b2;">首页 / <span style="color:#47536b;">商品列表</span></div>
+        <div style="margin-left:auto; display:flex; align-items:center; gap:8px;">
+          <div style="width:26px; height:26px; border-radius:50%; background:#e8eef7; border:1px solid #c8d4e4;"></div>
+          <span style="font-size:12px; color:#47536b;">admin</span><span style="font-size:10px; color:#98a3b3;">▾</span>
+        </div>
+      </div>
+      <div class="hatch" style="flex:1; margin:16px; border:1px dashed #cdd5e0; display:flex; align-items:center; justify-content:center; color:#9aa4b2; font-size:13px; border-radius:4px;">
+        内容区 &lt;router-view /&gt; —— 由菜单 component 动态挂载
+      </div>
+      <div style="position:absolute; right:22px; bottom:22px; width:56px; height:56px; border-radius:50%; background:#4a86c8; color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; box-shadow:0 4px 12px rgba(74,134,200,.35);">客服</div>
+    </div>
+  </div>
+  <div class="note">
+    <div><b>布局：</b>210px 固定侧栏 + 56px 顶栏 + 自适应内容区</div>
+    <div><b>配色：</b>侧栏 #304156 深色，仅一处主色高亮当前菜单</div>
+    <div><b>一致性：</b>所有业务页嵌在同一内容区，标题/面包屑统一</div>
+    <div><b>反馈：</b>用户下拉含修改密码、退出登录（二次确认）</div>
+  </div>
+</section>
+
+<!-- ================= 草图3 列表管理页 ================= -->
+<section class="sheet" id="sheet3">
+  <div class="sheet-head">
+    <span class="no">草图 03</span>
+    <span class="ttl">列表管理页（搜索卡 + 表格 + 分页）</span>
+    <span class="file">ecom-ui/src/components/productList.vue</span>
+  </div>
+  <div class="canvas" style="height:470px; padding:16px;">
+    <!-- 搜索卡 -->
+    <div class="box" style="padding:14px 16px; display:flex; align-items:center; gap:14px;">
+      <span class="lbl">商品名称</span><div class="inp" style="width:180px;">请输入商品名称</div>
+      <span class="lbl">类目</span><div class="inp" style="width:180px; justify-content:space-between;">全部类目<span>▾</span></div>
+      <span class="lbl">状态</span><div class="inp" style="width:120px; justify-content:space-between;">全部<span>▾</span></div>
+      <div class="btn pri">查询</div><div class="btn">重置</div>
+      <span class="mono" style="margin-left:auto; font-size:11px; color:#a8b2c0;">v-hasPermi="'product:item:find'"</span>
+    </div>
+    <!-- 表格卡 -->
+    <div class="box" style="margin-top:12px; padding:14px 16px;">
+      <div style="display:flex; align-items:center; margin-bottom:12px;">
+        <div class="btn pri">新增商品</div>
+        <span class="mono" style="margin-left:10px; font-size:11px; color:#a8b2c0;">v-hasPermi="'product:item:add'"</span>
+        <div style="margin-left:auto; display:flex; gap:6px;">
+          <div class="btn" style="width:30px; padding:0;">⟳</div>
+          <div class="btn" style="width:30px; padding:0;">⚙</div>
+        </div>
+      </div>
+      <div style="border:1px solid #cfd7e2; border-radius:3px; overflow:hidden;">
+        <div style="display:flex; background:#f3f6fa; border-bottom:1px solid #cfd7e2; font-size:12px; color:#47536b; font-weight:600;">
+          <div style="width:80px; padding:9px 8px; border-right:1px solid #dde3ec;">主图</div>
+          <div style="flex:1; padding:9px 8px; border-right:1px solid #dde3ec;">商品名称</div>
+          <div style="width:110px; padding:9px 8px; border-right:1px solid #dde3ec;">类目</div>
+          <div style="width:90px; padding:9px 8px; border-right:1px solid #dde3ec;">价格</div>
+          <div style="width:80px; padding:9px 8px; border-right:1px solid #dde3ec;">库存</div>
+          <div style="width:80px; padding:9px 8px; border-right:1px solid #dde3ec;">状态</div>
+          <div style="width:130px; padding:9px 8px;">操作</div>
+        </div>
+        <div style="font-size:12px; color:#6b7789;">
+          <div style="display:flex; border-bottom:1px solid #e8edf4; background:#fff;">
+            <div style="width:80px; padding:8px;"><div class="gray" style="width:48px;height:48px;border:1px dashed #cbd4e0;"></div></div>
+            <div style="flex:1; padding:8px;">无线蓝牙耳机 Pro</div>
+            <div style="width:110px; padding:8px;">数码配件</div>
+            <div style="width:90px; padding:8px;">¥ 399.00</div>
+            <div style="width:80px; padding:8px;">128</div>
+            <div style="width:80px; padding:8px;"><span style="border:1px solid #b7d3b9; color:#4c8a55; background:#f1f8f2; padding:1px 6px; border-radius:9px; font-size:11px;">上架</span></div>
+            <div style="width:130px; padding:8px; display:flex; gap:8px;"><span style="color:#4a86c8;">编辑</span><span style="color:#c0564f;">删除</span></div>
+          </div>
+          <div style="display:flex; border-bottom:1px solid #e8edf4; background:#fbfcfd;">
+            <div style="width:80px; padding:8px;"><div class="gray" style="width:48px;height:48px;border:1px dashed #cbd4e0;"></div></div>
+            <div style="flex:1; padding:8px;">便携咖啡手冲壶</div>
+            <div style="width:110px; padding:8px;">厨房用具</div>
+            <div style="width:90px; padding:8px;">¥ 159.00</div>
+            <div style="width:80px; padding:8px;">6</div>
+            <div style="width:80px; padding:8px;"><span style="border:1px solid #e2cfae; color:#9a7326; background:#fdf8ee; padding:1px 6px; border-radius:9px; font-size:11px;">下架</span></div>
+            <div style="width:130px; padding:8px; display:flex; gap:8px;"><span style="color:#4a86c8;">编辑</span><span style="color:#c0564f;">删除</span></div>
+          </div>
+          </div>
+      </div>
+      <div style="display:flex; align-items:center; margin-top:12px; font-size:12px; color:#7b879a;">
+        <span>共 32 条</span>
+        <div style="margin-left:auto; display:flex; gap:5px; align-items:center;">
+          <div class="btn" style="width:28px; padding:0;">‹</div>
+          <div class="btn pri" style="width:28px; padding:0;">1</div>
+          <div class="btn" style="width:28px; padding:0;">2</div>
+          <div class="btn" style="width:28px; padding:0;">3</div>
+          <div class="btn" style="width:28px; padding:0;">›</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note">
+    <div><b>布局：</b>搜索卡在上、表格卡在下，页面纵向单列</div>
+    <div><b>配色：</b>状态色仅用于状态标签（绿=上架，黄=下架）</div>
+    <div><b>一致性：</b>所有列表页同构，操作按钮固定放行尾</div>
+    <div><b>反馈：</b>表格 loading 遮罩、删除二次确认、操作 Toast</div>
+  </div>
+</section>
+
+<!-- ================= 草图4 对话页 ================= -->
+<section class="sheet" id="sheet4">
+  <div class="sheet-head">
+    <span class="no">草图 04</span>
+    <span class="ttl">核心业务页 · AI 智能客服对话</span>
+    <span class="file">ecom-ui/src/components/chatWidget.vue</span>
+  </div>
+  <div class="canvas" style="height:560px; padding:16px; display:flex;">
+    <div style="flex:1; border:1px dashed #cdd5e0; border-radius:4px; display:flex; align-items:center; justify-content:center; color:#aab3c0; font-size:12px;" class="hatch">
+      当前业务页（商品/订单）
+    </div>
+    <!-- 聊天面板 -->
+    <div class="box" style="width:380px; margin-left:16px; display:flex; flex-direction:column; box-shadow:0 4px 14px rgba(30,45,70,.10);">
+      <div style="padding:12px 14px; border-bottom:1px solid #e8edf4; background:#f7f9fc; border-radius:3px 3px 0 0;">
+        <div style="display:flex; align-items:center;">
+          <span style="font-size:13px; font-weight:600; color:#22303f;">智能客服</span>
+          <span style="margin-left:auto; font-size:12px; color:#a8b2c0;">✕</span>
+        </div>
+        <div style="font-size:11px; color:#93a0b1; margin-top:4px;">置信度 ≥ 85% 自动回复，否则转人工</div>
+      </div>
+      <div style="flex:1; padding:14px; display:flex; flex-direction:column; gap:12px; background:#fbfcfd;">
+        <div style="display:flex;"><div style="max-width:80%; background:#fff; border:1px solid #e0e7f0; border-radius:10px 10px 10px 3px; padding:9px 11px; font-size:12px; color:#47536b; line-height:1.6;">你好，我是智能客服小 e，请描述你的问题（如：如何申请退款 / 多久发货）</div></div>
+        <div style="display:flex; justify-content:flex-end;"><div style="max-width:78%; background:#4a86c8; color:#fff; border-radius:10px 10px 3px 10px; padding:9px 11px; font-size:12px; line-height:1.6;">如何申请退款？</div></div>
+        <div style="display:flex;"><div style="max-width:84%; background:#fff; border:1px solid #e0e7f0; border-radius:10px 10px 10px 3px; padding:9px 11px; font-size:12px; color:#47536b; line-height:1.6;">在「订单详情」页点击「申请退款」，选择原因后提交，审核 1-3 个工作日。关联单号 <span style="color:#4a86c8; text-decoration:underline;">202610230001</span></div></div>
+        <div style="display:flex; align-items:center; gap:6px; font-size:11px; color:#a8b2c0;"><span>转人工</span><span style="width:60px; height:1px; background:#e2e8f0;"></span></div>
+      </div>
+      <div style="padding:10px 12px; border-top:1px solid #e8edf4; display:flex; gap:8px; align-items:center;">
+        <div class="inp" style="flex:1;">请输入问题…</div>
+        <div class="btn pri" style="height:30px;">发送</div>
+      </div>
+    </div>
+    <div style="position:absolute; left:500px; bottom:22px; width:54px; height:54px; border-radius:50%; background:#4a86c8; color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; box-shadow:0 4px 12px rgba(74,134,200,.35);">客服</div>
+  </div>
+  <div class="note">
+    <div><b>布局：</b>业务区 + 右侧固定 380px 对话面板，不打断主任务</div>
+    <div><b>配色：</b>用户气泡主色、机器人气泡白底描边，一眼区分角色</div>
+    <div><b>一致性：</b>气泡圆角方向区分左右，消息流自上而下</div>
+    <div><b>反馈：</b>输入即发送、自动滚底、置信度不足提示转人工</div>
+  </div>
+</section>
+
+</body>
+</html>

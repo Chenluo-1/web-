@@ -20,7 +20,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 /**
  * 安全配置（照 seig）：
  * - 无状态会话，token 校验过滤器在 UsernamePasswordAuthenticationFilter 之前
- * - /login、/health、swagger 许可匿名；/sys/**、/getInfo、/getRouters、/logout 需登录
+ * - 白名单（/login、/health、swagger、游客商品只读）permitAll；其余请求先要求登录，
+ *   再经自定义权限管理器（路径级）与方法注解 @PreAuthorize（方法级）两层授权
  */
 @Configuration
 @EnableWebSecurity
@@ -35,6 +36,10 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
     @Autowired
     private AccessDeniedHandlerImpl accessDeniedHandler;
+
+    /** 路径级授权：白名单之外的全部请求交由此管理器判断（实验4 任务二·步骤2） */
+    @Autowired
+    private CustomAuthorizationManager customAuthorizationManager;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -55,23 +60,26 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 // 不通过 Session 获取 SecurityContext
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 .and()
-                .authorizeRequests()
-                // 登录/注册接口允许匿名（已登录用户重新登录也放行）
-                .antMatchers("/login", "/register").permitAll()
-                .antMatchers("/health").permitAll()
-                // swagger 放行
-                .antMatchers("/v2/api-docs", "/swagger-resources/**", "/swagger-ui.html",
-                        "/webjars/**", "/doc.html", "/favicon.ico").permitAll()
-                // 登录态相关与系统管理接口必须登录
-                .antMatchers("/behavior/report").permitAll()
-                .antMatchers("/search/**").permitAll()
-                // 游客浏览：商品列表/详情、商品评价只读（写操作仍走 @PreAuthorize 与登录校验）
-                .antMatchers(HttpMethod.GET, "/product", "/product/*").permitAll()
-                .antMatchers(HttpMethod.GET, "/review/product/**").permitAll()
-                .antMatchers("/getInfo", "/getRouters", "/logout", "/sys/**", "/product/**", "/file/**",
-                        "/cart/**", "/address/**", "/order/**", "/coupon/**", "/logistics/**", "/stock/**", "/dashboard/**",
-                        "/chat/**", "/knowledge/**", "/review/**").authenticated()
-                .anyRequest().permitAll();
+                // 路径级授权：白名单放行，其余全部交给自定义权限管理器（5.5 的 authorizeHttpRequests 只有 Customizer 重载）
+                .authorizeHttpRequests(auth -> auth
+                        // 登录/注册接口允许匿名（已登录用户重新登录也放行）
+                        .antMatchers("/login", "/register").permitAll()
+                        .antMatchers("/health").permitAll()
+                        // swagger 放行
+                        .antMatchers("/v2/api-docs", "/swagger-resources/**", "/swagger-ui.html",
+                                "/webjars/**", "/doc.html", "/favicon.ico").permitAll()
+                        // 错误页转发放行（兜底；AuthorizationFilter 默认跳过内部 ERROR dispatch）
+                        .antMatchers("/error").permitAll()
+                        // 预检请求不携带令牌，放行避免跨域失败
+                        .antMatchers(HttpMethod.OPTIONS).permitAll()
+                        .antMatchers("/behavior/report").permitAll()
+                        .antMatchers("/search/**").permitAll()
+                        // 游客浏览：商品列表/详情、商品评价只读（顺序别动：/product/category 靠 /product/* 放行）
+                        .antMatchers(HttpMethod.GET, "/product", "/product/*").permitAll()
+                        .antMatchers(HttpMethod.GET, "/review/product/**").permitAll()
+                        // 白名单内不得出现带 @PreAuthorize 的接口，否则未登录会从 401 变 403
+                        // 其余请求：先要求登录（未登录由 entrypoint 产 401）；已登录再按路径权限表比对（无权限由 AccessDeniedHandler 产 403）
+                        .anyRequest().access(customAuthorizationManager));
 
         http.exceptionHandling()
                 .authenticationEntryPoint(authenticationEntryPoint)

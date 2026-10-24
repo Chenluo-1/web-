@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -34,7 +35,7 @@ public class UserController {
 
     /** 分页查询 */
     @GetMapping
-    @PreAuthorize("@ps.hasPermission('sys:user')")
+    @PreAuthorize("@ss.hasPermission('user:list')")
     public ResponseResult<Page<User>> selectByPage(Integer pageNum, Integer pageSize, User user) {
         return ResponseResult.okResult(userService.selectByPage(pageNum, pageSize, user));
     }
@@ -45,7 +46,8 @@ public class UserController {
         return ResponseResult.okResult(userService.selectAll());
     }
 
-    /** 按 id 查询 */
+    /** 按 id 查询（详情） */
+    @PreAuthorize("@ss.hasPermission('user:query')")
     @GetMapping("/{id}")
     public ResponseResult<User> selectOne(@PathVariable Long id) {
         return ResponseResult.okResult(userService.getUserById(id));
@@ -59,7 +61,7 @@ public class UserController {
 
     /** 新增 */
     @OperLog(module = "用户管理", type = "新增")
-    @PreAuthorize("@ps.hasPermission('sys:user:add')")
+    @PreAuthorize("@ss.hasPermission('user:add')")
     @PostMapping
     public ResponseResult<Void> insert(@RequestBody UserDto userDto) {
         userService.addUser(userDto);
@@ -68,16 +70,25 @@ public class UserController {
 
     /** 修改 */
     @OperLog(module = "用户管理", type = "修改")
-    @PreAuthorize("@ps.hasPermission('sys:user:edit')")
+    @PreAuthorize("@ss.hasPermission('user:edit')")
     @PutMapping
     public ResponseResult<Void> update(@RequestBody UserDto userDto) {
         userService.updateUser(userDto);
         return ResponseResult.okResult();
     }
 
+    /** 启用/禁用账号（status：0 正常 1 停用） */
+    @OperLog(module = "用户管理", type = "启用/禁用")
+    @PreAuthorize("@ss.hasPermission('user:status')")
+    @PutMapping("/{id}/status")
+    public ResponseResult<Void> updateStatus(@PathVariable Long id, @RequestParam Integer status) {
+        userService.updateStatus(id, status);
+        return ResponseResult.okResult();
+    }
+
     /** 删除（支持批量，路径用逗号分隔） */
     @OperLog(module = "用户管理", type = "删除")
-    @PreAuthorize("@ps.hasPermission('sys:user:del')")
+    @PreAuthorize("@ss.hasPermission('user:delete')")
     @DeleteMapping("/{ids}")
     public ResponseResult<Void> delete(@PathVariable("ids") List<Long> ids) {
         userService.deleteUsers(ids);
@@ -86,7 +97,7 @@ public class UserController {
 
     /** 管理员重置密码 */
     @OperLog(module = "用户管理", type = "重置密码")
-    @PreAuthorize("@ps.hasPermission('sys:user:respwd')")
+    @PreAuthorize("@ss.hasPermission('user:resetPwd')")
     @PutMapping("/respwd")
     public ResponseResult<Void> resetPassword(@RequestBody PasswordDto passwordDto) {
         userService.resetPassword(passwordDto);

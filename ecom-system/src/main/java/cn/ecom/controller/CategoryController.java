@@ -41,7 +41,7 @@ public class CategoryController {
     }
 
     @OperLog(module = "类目管理", type = "新增")
-    @PreAuthorize("@ps.hasPermission('product:category:add')")
+    @PreAuthorize("@ss.hasPermission('product:category:add')")
     @PostMapping
     public ResponseResult<Void> insert(@RequestBody Category category) {
         categoryService.addCategory(category);
@@ -49,7 +49,7 @@ public class CategoryController {
     }
 
     @OperLog(module = "类目管理", type = "修改")
-    @PreAuthorize("@ps.hasPermission('product:category:edit')")
+    @PreAuthorize("@ss.hasPermission('product:category:edit')")
     @PutMapping
     public ResponseResult<Void> update(@RequestBody Category category) {
         categoryService.updateCategory(category);
@@ -57,7 +57,7 @@ public class CategoryController {
     }
 
     @OperLog(module = "类目管理", type = "删除")
-    @PreAuthorize("@ps.hasPermission('product:category:del')")
+    @PreAuthorize("@ss.hasPermission('product:category:del')")
     @DeleteMapping("/{id}")
     public ResponseResult<Void> delete(@PathVariable Long id) {
         categoryService.deleteCategory(id);

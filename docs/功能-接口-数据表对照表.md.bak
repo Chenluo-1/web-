@@ -1,0 +1,123 @@
+# 功能-接口-数据表对照表
+
+> 用途：实验报告 / 答辩材料。接口由 Swagger（`docs/swagger-api-docs.json`，共 96 个操作）整理。
+> 「登录」列：✅=需登录（消费者或后台），🔓=游客可访问；「权限」列 = `@PreAuthorize` 权限标识（不填即登录即可）。
+> 所有接口统一返回 `ResponseResult<T>`；分页参数 `pageNum/pageSize`，返回 MyBatis-Plus `Page`。
+
+## 1. 认证与注册
+
+| 功能 | 接口 | 登录 | 主要数据表 |
+|---|---|---|---|
+| 账号密码登录（发 token） | POST /login | 🔓 | sys_user（登录态写 Redis `user:{id}`） |
+| 消费者自助注册 | POST /register | 🔓 | sys_user、sys_user_role |
+| 退出登录 | GET /logout | ✅ | Redis |
+| 当前用户信息+权限集合 | GET /getInfo | ✅ | sys_user、sys_role_menu、sys_menu |
+| 当前用户菜单树 | GET /getRouters | ✅ | sys_menu、sys_role_menu |
+| 健康检查 | GET /health | 🔓 | - |
+
+## 2. 用户与角色（系统管理）
+
+| 功能 | 接口 | 权限 | 主要数据表 |
+|---|---|---|---|
+| 用户分页/详情/全部 | GET /sys/user、/sys/user/{id}、/sys/user/getAll | user:list（详情 user:query） | sys_user |
+| 新增/修改/删除用户 | POST/PUT /sys/user、DELETE /sys/user/{ids} | user:add / user:edit / user:delete | sys_user、sys_user_role |
+| 启用/禁用账号 | PUT /sys/user/{id}/status | user:status | sys_user |
+| 用户角色 id 集合 | GET /sys/user/{id}/roleIds | user:query | sys_user_role |
+| 管理员重置密码 | PUT /sys/user/respwd | user:resetPwd | sys_user |
+| 本人修改密码 | PUT /sys/user/password | ✅ | sys_user |
+| 角色 CRUD | GET/POST/PUT/DELETE /sys/role… | sys:role（增删改细分 :add/:edit/:del） | sys_role、sys_role_menu |
+| 角色菜单分配 | GET/PUT /sys/role/{roleId}/menu | sys:role:setMenu | sys_role_menu |
+| 菜单树 | GET /sys/menu/tree | sys:role | sys_menu |
+| 操作日志（记录） | —（AOP 注解，无独立查询页，简化项） | - | sys_oper_log |
+
+## 3. 类目与商品
+
+| 功能 | 接口 | 登录/权限 | 主要数据表 |
+|---|---|---|---|
+| 类目树（不限层级） | GET /product/category | 🔓 | ec_category |
+| 类目查/增/改/删 | GET /product/category/{id}、POST/PUT /product/category、DELETE /product/category/{id} | 增删改：product:category:add/edit/del | ec_category |
+| 商品分页（游客只得上架） | GET /product | 🔓 | ec_product、ec_sku |
+| 商品详情（含规格/SKU） | GET /product/{id} | 🔓 | ec_product、ec_product_spec、ec_sku、ec_product_image |
+| 新增/修改商品（SKU 对账） | POST/PUT /product | product:item:add / edit | ec_product、ec_product_spec、ec_sku |
+| 上下架 | PUT /product/{id}/status | product:item:status | ec_product |
+| 删除商品 | DELETE /product/{ids} | product:item:del | ec_product、ec_sku |
+| 图片上传（MinIO） | POST /file/upload | ✅（操作日志） | MinIO bucket `ecom` |
+
+## 4. 交易（消费者端）
+
+| 功能 | 接口 | 登录 | 主要数据表 |
+|---|---|---|---|
+| 购物车 列表/加购/改数/勾选/删 | GET/POST /cart、PUT /cart/{id}/quantity、PUT /cart/{id}/checked、PUT /cart/checkAll、DELETE /cart/{ids} | ✅ | ec_cart |
+| 收货地址 CRUD+默认 | GET/POST/PUT /address、DELETE /address/{id}、PUT /address/{id}/default | ✅ | ec_address |
+| 优惠券：可领/领取/我的 | GET /coupon/available、POST /coupon/{couponId}/receive、GET /coupon/mine | ✅ | ec_coupon、ec_user_coupon |
+| 下单（幂等+原子扣库存） | POST /order | ✅ | ec_order、ec_order_item、ec_sku、ec_user_coupon、ec_cart |
+| 模拟支付/回调（幂等） | POST /order/{orderNo}/pay、POST /order/pay/callback | ✅ | ec_order、ec_order_status_log |
+| 我的订单/详情/状态轮询 | GET /order/mine、GET /order/{orderNo}/detail、GET /order/{orderNo}/status | ✅ | ec_order、ec_order_item、ec_order_status_log、ec_refund |
+| 取消订单 | POST /order/{orderNo}/cancel | ✅ | ec_order、ec_sku（回补库存）、ec_user_coupon |
+| 确认收货 | POST /order/{orderNo}/receive | ✅ | ec_order、ec_order_status_log |
+
+## 5. 交易（后台管理）
+
+| 功能 | 接口 | 权限 | 主要数据表 |
+|---|---|---|---|
+| 订单管理列表/详情 | GET /order/manage、GET /order/manage/{orderNo} | order:manage | ec_order、ec_order_item |
+| 发货 | POST /order/{orderNo}/ship | order:ship | ec_order、ec_logistics、ec_order_status_log |
+| 申请退款（消费者） | POST /order/{orderNo}/refund | ✅ | ec_refund、ec_order_status_log |
+| 退款审核 | PUT /order/refund/{refundId}/audit | order:refund | ec_refund、ec_order、ec_sku（按配置回滚库存） |
+| 物流轨迹（虚拟推进） | GET /logistics/{orderNo} | ✅ | ec_logistics |
+| 优惠券管理 CRUD | GET/POST/PUT/DELETE /coupon… | coupon:manage（增删改 :add/:edit/:del） | ec_coupon |
+
+## 6. 评价（简化实现）
+
+| 功能 | 接口 | 登录 | 主要数据表 |
+|---|---|---|---|
+| 提交评价（已完成订单） | POST /review | ✅ | ec_review、ec_order、ec_order_item |
+| 商品评价分页/平均分 | GET /review/product/{productId}、/review/product/{productId}/avg | 🔓 | ec_review、sys_user |
+| 我在某订单的评价 | GET /review/order/{orderNo} | ✅ | ec_review |
+
+## 7. 供应链智能（规则版）
+
+| 功能 | 接口 | 权限 | 主要数据表 |
+|---|---|---|---|
+| 库存预警列表/未处理数/处理 | GET /stock/alert、/stock/alert/unhandledCount、PUT /stock/alert/{id}/handle | stock:alert（处理 :handle） | ec_stock_alert、ec_sku、ec_sys_config |
+| 手动扫描预警 | POST /stock/alert/scan | stock:alert:scan | ec_stock_alert、ec_sku |
+| 销量预测：SKU 列表/预测数据/重新生成 | GET /stock/forecast/skus、GET /stock/forecast/{skuId}、POST /stock/forecast/generate | stock:forecast（生成 :generate） | ec_sales_forecast、ec_product_sales_daily、ec_sys_config |
+
+## 8. 数据看板
+
+| 功能 | 接口 | 权限 | 主要数据表 |
+|---|---|---|---|
+| 实时指标（Redis 5min 缓存） | GET /dashboard/realtime | dashboard:market | ec_order、ec_stat_daily、Redis |
+| 销售趋势（日/周/月） | GET /dashboard/salesTrend | dashboard:market | ec_stat_daily |
+| 热销/滞销排行 | GET /dashboard/productRank | dashboard:product | ec_product_sales_daily、ec_product |
+| 类目占比 | GET /dashboard/categoryAnalysis | dashboard:market | ec_product_sales_daily、ec_category |
+| 转化漏斗 | GET /dashboard/orderFunnel | dashboard:market | ec_user_behavior、ec_cart、ec_order |
+| 手动重算 T+1 汇总 | POST /dashboard/aggregate | dashboard:refresh | ec_stat_daily、ec_product_sales_daily、ec_order |
+| 行为埋点上报 | POST /behavior/report | 🔓（游客可上报） | ec_user_behavior |
+
+## 9. 智能客服与知识库
+
+| 功能 | 接口 | 权限 | 主要数据表 |
+|---|---|---|---|
+| 提问（≥阈值自动回复，否则转人工） | POST /chat/ask | ✅ | ec_knowledge、ec_chat_log、ec_sys_config |
+| 会话记录分页 | GET /chat/logs | chat:manage | ec_chat_log |
+| 待补充问题列表 | GET /chat/pending | chat:manage | ec_chat_log |
+| 知识库 CRUD | GET/POST/PUT/DELETE /knowledge… | chat:manage（增删改 :add/:edit/:del） | ec_knowledge、ec_sys_config |
+
+## 10. 智能搜索
+
+| 功能 | 接口 | 登录 | 主要数据表 |
+|---|---|---|---|
+| 搜索（同义词+容错+推荐兜底） | GET /search | 🔓 | ec_product、ec_sku、ec_search_synonym、ec_search_log |
+| 热门搜索词 | GET /search/hotWords | 🔓 | ec_search_log |
+| 搜索联想 | GET /search/suggest | 🔓 | ec_search_log |
+
+## 附：数据表总览（31 张）
+
+| 分类 | 表 |
+|---|---|
+| 系统 | sys_user、sys_role、sys_menu、sys_user_role、sys_role_menu、sys_oper_log |
+| 商品 | ec_category、ec_product、ec_product_spec、ec_sku、ec_product_image |
+| 交易 | ec_cart、ec_address、ec_order、ec_order_item、ec_order_status_log、ec_refund、ec_logistics |
+| 营销 | ec_coupon、ec_user_coupon、ec_review |
+| 智能 | ec_stock_alert、ec_sales_forecast、ec_product_sales_daily、ec_stat_daily、ec_user_behavior、ec_search_log、ec_search_synonym、ec_knowledge、ec_chat_log、ec_sys_config |

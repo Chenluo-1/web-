@@ -15,7 +15,7 @@
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" v-hasPermi="'sys:user:find'" @click="handleSearch">查询</el-button>
+          <el-button type="primary" v-hasPermi="'user:list'" @click="handleSearch">查询</el-button>
           <el-button @click="resetQuery">重置</el-button>
         </el-form-item>
       </el-form>
@@ -23,7 +23,7 @@
 
     <el-card shadow="never" class="table-card">
       <div class="toolbar">
-        <el-button type="primary" v-hasPermi="'sys:user:add'" @click="openAdd">新增用户</el-button>
+        <el-button type="primary" v-hasPermi="'user:add'" @click="openAdd">新增用户</el-button>
       </div>
 
       <el-table :data="tableData" border stripe v-loading="loading">
@@ -46,11 +46,14 @@
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="创建时间" min-width="170" />
-        <el-table-column label="操作" width="220" fixed="right">
+        <el-table-column label="操作" width="300" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" v-hasPermi="'sys:user:edit'" @click="openEdit(row)">编辑</el-button>
-            <el-button link type="warning" v-hasPermi="'sys:user:respwd'" @click="openResetPwd(row)">重置密码</el-button>
-            <el-button link type="danger" v-hasPermi="'sys:user:del'" @click="handleDelete(row)">删除</el-button>
+            <el-button link type="primary" v-hasPermi="'user:edit'" @click="openEdit(row)">编辑</el-button>
+            <el-button link type="info" v-hasPermi="'user:status'" @click="handleStatus(row)">
+              {{ row.status === 0 ? '停用' : '启用' }}
+            </el-button>
+            <el-button link type="warning" v-hasPermi="'user:resetPwd'" @click="openResetPwd(row)">重置密码</el-button>
+            <el-button link type="danger" v-hasPermi="'user:delete'" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -223,6 +226,19 @@ const handleDelete = row => {
     .then(async () => {
       await sysUserHttp.delUser([row.id])
       ElMessage.success('删除成功')
+      loadPage()
+    })
+    .catch(() => {})
+}
+
+// ---------- 启用/禁用 ----------
+const handleStatus = row => {
+  const target = row.status === 0 ? 1 : 0
+  const action = target === 1 ? '停用' : '启用'
+  ElMessageBox.confirm(`确定${action}用户「${row.username}」吗？`, '提示', { type: 'warning' })
+    .then(async () => {
+      await sysUserHttp.updateStatus(row.id, target)
+      ElMessage.success(`${action}成功`)
       loadPage()
     })
     .catch(() => {})

@@ -660,13 +660,14 @@ INSERT INTO `sys_role` (`id`, `role_name`, `role_key`, `role_sort`, `status`) VA
 INSERT INTO `sys_menu` (`id`, `parent_id`, `name`, `menu_type`, `url_path`, `component`, `permit`, `icon`, `order_num`, `visible`, `status`) VALUES
 (1,  0,  '首页',     'M', '/home',     'home',    'home',    'iconfont icon-home-full',      1,  0, 0),
 (2,  0,  '系统管理', 'M', '/sys',      'sys',     'sys',     'iconfont icon-xitong',         9,  0, 0),
-(18, 2,  '用户管理', 'C', '/sys/user', 'sysUser', 'sys:user','iconfont icon-yonghu',         21, 0, 0),
+(18, 2,  '用户管理', 'C', '/sys/user', 'sysUser', 'user:list','iconfont icon-yonghu',         21, 0, 0),
 (19, 2,  '角色管理', 'C', '/sys/role', 'sysRole', 'sys:role','iconfont icon-jiaoseguanli',   22, 0, 0),
-(20, 18, '搜索用户', 'F', '/sys/user/find',     'sysUserFind',    'sys:user:find',    NULL, 0, 1, 0),
-(21, 18, '新增用户', 'F', '/sys/user/add',      'sysUserAdd',     'sys:user:add',     NULL, 0, 1, 0),
-(22, 18, '修改用户', 'F', '/sys/user/edit',     'sysUserEdit',    'sys:user:edit',    NULL, 0, 1, 0),
-(23, 18, '删除用户', 'F', '/sys/user/del',      'sysUserDel',     'sys:user:del',     NULL, 0, 1, 0),
-(24, 18, '重置密码', 'F', '/sys/user/respwd',   'sysUserRespwd',  'sys:user:respwd',  NULL, 0, 1, 0),
+(20, 18, '搜索用户', 'F', '/sys/user/find',     'sysUserFind',    'user:list',     NULL, 0, 1, 0),
+(21, 18, '新增用户', 'F', '/sys/user/add',      'sysUserAdd',     'user:add',      NULL, 0, 1, 0),
+(22, 18, '修改用户', 'F', '/sys/user/edit',     'sysUserEdit',    'user:edit',     NULL, 0, 1, 0),
+(23, 18, '删除用户', 'F', '/sys/user/del',      'sysUserDel',     'user:delete',   NULL, 0, 1, 0),
+(24, 18, '重置密码', 'F', '/sys/user/respwd',   'sysUserRespwd',  'user:resetPwd', NULL, 0, 1, 0),
+(43, 18, '启用/禁用', 'F', '/sys/user/status',  'sysUserStatus',  'user:status',   NULL, 0, 1, 0),
 (25, 19, '新增角色', 'F', '/sys/role/add',      'sysRoleAdd',     'sys:role:add',     NULL, 0, 1, 0),
 (26, 19, '修改角色', 'F', '/sys/role/edit',     'sysRoleEdit',    'sys:role:edit',    NULL, 0, 1, 0),
 (27, 19, '删除角色', 'F', '/sys/role/del',      'sysRoleDel',     'sys:role:del',     NULL, 0, 1, 0),
@@ -703,7 +704,7 @@ INSERT INTO `sys_user_role` (`user_id`, `role_id`) VALUES (1, 1);
 
 -- 超管拥有全部菜单（P1 代码层对 super_admin 直通，双保险）
 INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES
-(1, 1),(1, 2),(1, 18),(1, 19),(1, 20),(1, 21),(1, 22),(1, 23),(1, 24),(1, 25),(1, 26),(1, 27),(1, 28),(1, 29),(1, 30);
+(1, 1),(1, 2),(1, 18),(1, 19),(1, 20),(1, 21),(1, 22),(1, 23),(1, 24),(1, 25),(1, 26),(1, 27),(1, 28),(1, 29),(1, 30),(1, 43);
 
 -- 4) 系统参数（规则全部配置化，禁止写死代码）
 INSERT INTO `ec_sys_config` (`config_key`, `config_name`, `config_value`, `remark`) VALUES
@@ -813,8 +814,8 @@ INSERT IGNORE INTO `sys_menu` (`id`, `parent_id`, `name`, `menu_type`, `url_path
 
 -- 超管：全部新菜单；消费者(member)：浏览/购物车/订单；活动运营(market_op)：首页 + 营销中心
 INSERT IGNORE INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES
-(1, 400),(1, 401),(1, 402),(1, 500),(1, 501),(1, 502),(1, 503),(1, 504),
-(5, 400),(5, 401),(5, 402),
+(1, 500),(1, 501),(1, 502),(1, 503),(1, 504),
+(5, 1),(5, 400),(5, 401),(5, 402),
 (3, 1),(3, 500),(3, 501),(3, 502),(3, 503),(3, 504);
 
 -- ============================================================
@@ -871,7 +872,7 @@ INSERT IGNORE INTO `sys_menu` (`id`, `parent_id`, `name`, `menu_type`, `url_path
 
 INSERT IGNORE INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES
 (1, 800),(1, 801),(1, 802),(1, 803),
-(4, 800),(4, 801),(4, 802),(4, 803);
+(4, 1),(4, 800),(4, 801),(4, 802),(4, 803);
 
 -- 知识库种子（标准问法 + 相似问法 + 答案）
 INSERT IGNORE INTO `ec_knowledge` (`id`, `question`, `similar_questions`, `answer`, `category`, `status`) VALUES
@@ -907,3 +908,19 @@ INSERT IGNORE INTO `ec_search_synonym` (`id`, `word`, `synonyms`) VALUES
 (1, 'T恤', '短袖,体恤,短t,t恤'),
 (2, '手机', '移动电话,cellphone,电话'),
 (3, '退款', '退货,退钱');
+
+-- ============================================================
+-- P9 实验4 任务二：用户模块权限标识对齐（sys:user:* → user:*）+「启用/禁用」按钮
+-- （基础种子已用新值；本批供已存在的库幂等升级，可重复执行）
+-- ============================================================
+UPDATE `sys_menu` SET `permit` = 'user:list'     WHERE `permit` = 'sys:user';
+UPDATE `sys_menu` SET `permit` = 'user:list'     WHERE `permit` = 'sys:user:find';
+UPDATE `sys_menu` SET `permit` = 'user:add'      WHERE `permit` = 'sys:user:add';
+UPDATE `sys_menu` SET `permit` = 'user:edit'     WHERE `permit` = 'sys:user:edit';
+UPDATE `sys_menu` SET `permit` = 'user:delete'   WHERE `permit` = 'sys:user:del';
+UPDATE `sys_menu` SET `permit` = 'user:resetPwd' WHERE `permit` = 'sys:user:respwd';
+
+INSERT IGNORE INTO `sys_menu` (`id`, `parent_id`, `name`, `menu_type`, `url_path`, `component`, `permit`, `icon`, `order_num`, `visible`, `status`) VALUES
+(43, 18, '启用/禁用', 'F', '/sys/user/status', 'sysUserStatus', 'user:status', NULL, 0, 1, 0);
+
+INSERT IGNORE INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (1, 43);

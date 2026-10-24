@@ -32,7 +32,7 @@ public class RoleController {
 
     /** 分页查询 */
     @GetMapping
-    @PreAuthorize("@ps.hasPermission('sys:role')")
+    @PreAuthorize("@ss.hasPermission('sys:role')")
     public ResponseResult<Page<Role>> selectByPage(Integer pageNum, Integer pageSize) {
         return ResponseResult.okResult(roleService.selectByPage(pageNum, pageSize));
     }
@@ -51,14 +51,14 @@ public class RoleController {
 
     /** 角色已分配的菜单 id 集合（分配权限回显） */
     @GetMapping("/{roleId}/menu")
-    @PreAuthorize("@ps.hasPermission('sys:role')")
+    @PreAuthorize("@ss.hasPermission('sys:role')")
     public ResponseResult<List<Long>> getMenuIds(@PathVariable Long roleId) {
         return ResponseResult.okResult(roleService.getMenuIdsByRoleId(roleId));
     }
 
     /** 给角色分配菜单 */
     @OperLog(module = "角色管理", type = "分配权限")
-    @PreAuthorize("@ps.hasPermission('sys:role:setMenu')")
+    @PreAuthorize("@ss.hasPermission('sys:role:setMenu')")
     @PutMapping("/{roleId}/menu")
     public ResponseResult<Void> assignMenus(@PathVariable Long roleId, @RequestBody List<Long> menuIds) {
         roleService.assignMenus(roleId, menuIds);
@@ -67,7 +67,7 @@ public class RoleController {
 
     /** 新增 */
     @OperLog(module = "角色管理", type = "新增")
-    @PreAuthorize("@ps.hasPermission('sys:role:add')")
+    @PreAuthorize("@ss.hasPermission('sys:role:add')")
     @PostMapping
     public ResponseResult<Void> insert(@RequestBody Role role) {
         roleService.addRole(role);
@@ -76,7 +76,7 @@ public class RoleController {
 
     /** 修改 */
     @OperLog(module = "角色管理", type = "修改")
-    @PreAuthorize("@ps.hasPermission('sys:role:edit')")
+    @PreAuthorize("@ss.hasPermission('sys:role:edit')")
     @PutMapping
     public ResponseResult<Void> update(@RequestBody Role role) {
         roleService.updateRole(role);
@@ -85,7 +85,7 @@ public class RoleController {
 
     /** 删除（支持批量） */
     @OperLog(module = "角色管理", type = "删除")
-    @PreAuthorize("@ps.hasPermission('sys:role:del')")
+    @PreAuthorize("@ss.hasPermission('sys:role:del')")
     @DeleteMapping("/{ids}")
     public ResponseResult<Void> delete(@PathVariable("ids") List<Long> ids) {
         roleService.deleteRoles(ids);

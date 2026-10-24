@@ -25,7 +25,7 @@ public class MenuController {
 
     /** 全量菜单树（M/C/F 全部，供角色分配勾选） */
     @GetMapping("/tree")
-    @PreAuthorize("@ps.hasPermission('sys:role')")
+    @PreAuthorize("@ss.hasPermission('sys:role')")
     public ResponseResult<List<Menu>> tree() {
         return ResponseResult.okResult(menuService.selectAllMenuTree());
     }

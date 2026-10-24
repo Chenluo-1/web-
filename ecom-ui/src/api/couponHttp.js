@@ -7,7 +7,8 @@ function selectAvailableCoupon() {
 
 // 领取
 function receiveCoupon(couponId) {
-  return request.post('/coupon/' + couponId + '/receive')
+  // silentError：重复领取由页面用对话框提示，不走全局 toast
+  return request.post('/coupon/' + couponId + '/receive', null, { silentError: true })
 }
 
 // 我的券（未使用）

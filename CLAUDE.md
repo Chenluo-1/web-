@@ -41,7 +41,8 @@ Web应用项目实训课程设计（CW3104）。一个面向店铺运营的电�
    - `DELETE /{domain}/{entity}/{id}`   删除
    - 分页参数统一用 `pageNum` / `pageSize`，返回 MyBatis-Plus 的 `Page` 对象
 4. Service 层接口 + 实现分开，实现类放 `service.impl`
-5. 接口鉴权用 `@PreAuthorize("@ps.hasPermission('xxx:yyy')")`，权限标识格式 `模块:操作`
+5. 接口鉴权用 `@PreAuthorize("@ss.hasPermission('xxx:yyy')")`，权限标识格式 `模块:操作`；
+   路径级另有 `CustomAuthorizationManager` 集中表（方法+路径 → 权限标识）做同标识比对，方法注解与其共用 `PermissionService`（Bean `ss`）同一套逻辑
 6. 所有写操作（增删改）记录操作日志
 7. 后端端口 8888，接口路径前缀不加 /api（由前端代理负责）
 

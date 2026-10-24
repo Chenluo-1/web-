@@ -45,6 +45,11 @@ function getRoleIds(id) {
   return request.get('/sys/user/' + id + '/roleIds')
 }
 
+// 启用/禁用账号（status：0 正常 1 停用）
+function updateStatus(id, status) {
+  return request.put('/sys/user/' + id + '/status', null, { params: { status } })
+}
+
 export default {
   selectUserByPage,
   selectAllUser,
@@ -54,5 +59,6 @@ export default {
   delUser,
   resetPassword,
   changePassword,
-  getRoleIds
+  getRoleIds,
+  updateStatus
 }

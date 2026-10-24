@@ -27,13 +27,16 @@ request.interceptors.response.use(
       handleUnauthorized()
       return Promise.reject(new Error(res.msg || '登录已失效'))
     }
-    ElMessage.error(res.msg || '操作失败')
+    // silentError：调用方自行处理提示（如用对话框），只透传错误不弹 toast
+    if (!response.config || !response.config.silentError) {
+      ElMessage.error(res.msg || '操作失败')
+    }
     return Promise.reject(new Error(res.msg || '操作失败'))
   },
   error => {
     if (error.response && error.response.status === 401) {
       handleUnauthorized()
-    } else {
+    } else if (!error.config || !error.config.silentError) {
       ElMessage.error(error.message || '网络异常')
     }
     return Promise.reject(error)

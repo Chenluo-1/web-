@@ -148,6 +148,22 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
+    public void updateStatus(Long id, Integer status) {
+        if (status == null || (status != 0 && status != 1)) {
+            throw new BusinessException(AppHttpCodeEnum.PARAMETER_ERROR, "状态值不合法");
+        }
+        User user = getById(id);
+        if (user == null) {
+            throw new BusinessException(AppHttpCodeEnum.USER_NOT_EXIST);
+        }
+        updateById(new User().setId(id).setStatus(status));
+        // 停用后立即失效登录态（user:{id}），否则旧 token 仍可用满有效期，停用形同虚设
+        if (status == 1) {
+            redisCache.deleteObject(RedisCache.LOGIN_USER_KEY + id);
+        }
+    }
+
+    @Override
     public void resetPassword(PasswordDto passwordDto) {
         User user = getById(passwordDto.getId());
         if (user == null) {

@@ -53,7 +53,7 @@ public class ProductController {
 
     /** 新增（默认下架，SKU 随商品一起提交） */
     @OperLog(module = "商品管理", type = "新增")
-    @PreAuthorize("@ps.hasPermission('product:item:add')")
+    @PreAuthorize("@ss.hasPermission('product:item:add')")
     @PostMapping
     public ResponseResult<Void> insert(@RequestBody ProductDto productDto) {
         productService.addProduct(productDto);
@@ -62,7 +62,7 @@ public class ProductController {
 
     /** 修改（SKU 按 id 对账，不丢已有价格库存） */
     @OperLog(module = "商品管理", type = "修改")
-    @PreAuthorize("@ps.hasPermission('product:item:edit')")
+    @PreAuthorize("@ss.hasPermission('product:item:edit')")
     @PutMapping
     public ResponseResult<Void> update(@RequestBody ProductDto productDto) {
         productService.updateProduct(productDto);
@@ -71,7 +71,7 @@ public class ProductController {
 
     /** 上下架 */
     @OperLog(module = "商品管理", type = "上下架")
-    @PreAuthorize("@ps.hasPermission('product:item:status')")
+    @PreAuthorize("@ss.hasPermission('product:item:status')")
     @PutMapping("/{id}/status")
     public ResponseResult<Void> updateStatus(@PathVariable Long id, @RequestParam Integer status) {
         productService.updateStatus(id, status);
@@ -80,7 +80,7 @@ public class ProductController {
 
     /** 删除（支持批量） */
     @OperLog(module = "商品管理", type = "删除")
-    @PreAuthorize("@ps.hasPermission('product:item:del')")
+    @PreAuthorize("@ss.hasPermission('product:item:del')")
     @DeleteMapping("/{ids}")
     public ResponseResult<Void> delete(@PathVariable("ids") List<Long> ids) {
         productService.deleteProducts(ids);

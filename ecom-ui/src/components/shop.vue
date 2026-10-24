@@ -83,7 +83,8 @@
           <div class="coupon-name">{{ c.name }}</div>
           <div class="coupon-cond">满 {{ c.thresholdAmount }} 元可用 ｜ 有效期至 {{ formatDate(c.endTime) }}</div>
         </div>
-        <el-button type="warning" size="small" @click="receive(c)">领取</el-button>
+        <el-button v-if="c.received" class="claimed" size="small" @click="alreadyTip(c)">已领取</el-button>
+        <el-button v-else type="warning" size="small" :loading="receivingId === c.id" @click="receive(c)">领取</el-button>
       </div>
       <el-empty v-if="!availableCoupons.length" description="暂无可领取优惠券" :image-size="70" />
     </el-dialog>
@@ -92,7 +93,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import productHttp from '@/api/productHttp'
 import cartHttp from '@/api/cartHttp'
 import couponHttp from '@/api/couponHttp'
@@ -196,9 +197,36 @@ const openCouponDrawer = async () => {
   couponVisible.value = true
 }
 
+const receivingId = ref(null)
+
+const alreadyTip = c => {
+  ElMessageBox.alert(
+    `「${c.name}」每人限领 ${c.perUserLimit || 1} 张，你已经领取过了，下单结算时可直接选用。`,
+    '该优惠券已领取',
+    { confirmButtonText: '知道了', type: 'warning' }
+  )
+}
+
 const receive = async c => {
-  await couponHttp.receiveCoupon(c.id)
-  ElMessage.success('领取成功')
+  // 先本地判断，已领的直接弹窗说明，不打接口
+  if (c.received) {
+    alreadyTip(c)
+    return
+  }
+  receivingId.value = c.id
+  try {
+    await couponHttp.receiveCoupon(c.id)
+    c.received = true
+    ElMessage.success('领取成功，下单结算时可选用')
+  } catch (e) {
+    // 并发/多标签页等漏网情况：用对话框说明后端返回的原因
+    ElMessageBox.alert(e.message || '领取失败，请稍后重试', '无法领取', {
+      confirmButtonText: '知道了',
+      type: 'warning'
+    })
+  } finally {
+    receivingId.value = null
+  }
 }
 
 const formatDate = v => (v ? String(v).substring(0, 10) : '')
@@ -299,6 +327,12 @@ onMounted(loadPage)
   border-radius: 6px;
   padding: 10px 12px;
   margin-bottom: 10px;
+}
+
+.claimed {
+  color: #94a3b8;
+  border-color: #e5e7eb;
+  background: #f8fafc;
 }
 
 .coupon-name {

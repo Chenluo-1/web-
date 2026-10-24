@@ -22,6 +22,7 @@ public class GlobalExceptionHandler {
         return ResponseResult.errorResult(e.getCode(), e.getMessage());
     }
 
+    /** 未登录兜底：PermissionService 已改为「取不到登录用户直接返回 false」，此处防御性保留 */
     @ExceptionHandler(LoginRequiredException.class)
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public ResponseResult<Void> handleLoginRequired(LoginRequiredException e) {

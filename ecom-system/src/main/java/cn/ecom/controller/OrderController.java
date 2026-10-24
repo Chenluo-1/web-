@@ -113,7 +113,7 @@ public class OrderController {
 
     /** 后台订单分页 */
     @GetMapping("/manage")
-    @PreAuthorize("@ps.hasPermission('order:manage')")
+    @PreAuthorize("@ss.hasPermission('order:manage')")
     public ResponseResult<Page<OrderVo>> manage(Integer pageNum, Integer pageSize,
                                                 String orderNo, Integer status) {
         return ResponseResult.okResult(orderService.selectManageByPage(pageNum, pageSize, orderNo, status));
@@ -121,14 +121,14 @@ public class OrderController {
 
     /** 后台订单详情 */
     @GetMapping("/manage/{orderNo}")
-    @PreAuthorize("@ps.hasPermission('order:manage')")
+    @PreAuthorize("@ss.hasPermission('order:manage')")
     public ResponseResult<OrderDetailVo> manageDetail(@PathVariable String orderNo) {
         return ResponseResult.okResult(orderService.getManageOrderDetail(orderNo));
     }
 
     /** 发货（待发货→运输中） */
     @OperLog(module = "订单管理", type = "发货")
-    @PreAuthorize("@ps.hasPermission('order:ship')")
+    @PreAuthorize("@ss.hasPermission('order:ship')")
     @PostMapping("/{orderNo}/ship")
     public ResponseResult<Void> ship(@PathVariable String orderNo, @RequestBody ShipDto dto) {
         orderService.ship(orderNo, dto);
@@ -137,7 +137,7 @@ public class OrderController {
 
     /** 审核退款（通过→已退款并按配置回滚库存；驳回→回待发货） */
     @OperLog(module = "订单管理", type = "审核退款")
-    @PreAuthorize("@ps.hasPermission('order:refund')")
+    @PreAuthorize("@ss.hasPermission('order:refund')")
     @PutMapping("/refund/{refundId}/audit")
     public ResponseResult<Void> auditRefund(@PathVariable Long refundId, @RequestBody RefundAuditDto dto) {
         orderService.auditRefund(refundId, dto);
