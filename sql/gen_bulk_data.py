@@ -16,12 +16,14 @@
   1) python sql/gen_product_images.py --upload --only <新商品id>   补商品图
   2) POST /dashboard/aggregate?days=760                            重建看板汇总
 """
+import json
 import os
 import random
 import subprocess
+from collections import OrderedDict
 from datetime import datetime, timedelta
 
-from product_titles import title_for
+from product_titles import food_spec, title_for
 
 random.seed(20261024)
 
@@ -157,10 +159,13 @@ for i in range(PRODUCT_COUNT):
     t = THEME.get(root, DEFAULT_THEME)
     lo, hi = t["price"]
     base = round(random.uniform(lo, hi), 2)
-    products.append({"id": pid, "title": compose_title(root, leaf), "cid": cid, "root": root, "base": base,
+    title = compose_title(root, leaf)
+    products.append({"id": pid, "title": title, "cid": cid, "root": root, "base": base,
                      "desc": "%s｜%s 类目精选，支持 7 天无理由退换。" % (leaf, root)})
 
-    dims = DIMS.get(root, [("规格", ["标准"])])
+    # 美食按叶子类目选规格（蛋按枚、水果按斤…），其余沿用大类目的通用规格
+    dims = ([food_spec(leaf, title)] if root == "美食" and food_spec(leaf, title)
+            else DIMS.get(root, [("规格", ["标准"])]))
     combos = [{}]
     for name, values in dims:
         nxt = []
@@ -409,6 +414,30 @@ for start in range(0, len(skus), 300):
         s["id"], s["pid"], esc(s["specs"]), s["id"], s["price"], s["stock"], fmt(NOW), fmt(NOW))
         for s in skus[start:start + 300]]
     w(",\n".join(rows) + ";")
+
+# 规格维度：商品详情弹窗按 ec_product_spec 渲染规格选择，
+# 只写 ec_sku 不写这张表的话，前端拿不到维度、加购按钮一直置灰
+spec_rows = []
+for p in products:
+    dims = OrderedDict()
+    for s in sku_by_product[p["id"]]:
+        for name, value in json.loads(s["specs"]).items():
+            dims.setdefault(name, [])
+            if value not in dims[name]:
+                dims[name].append(value)
+    for name, values in dims.items():
+        if values and all(v.isdigit() for v in values):
+            values = sorted(values, key=int)
+        spec_rows.append((p["id"], name, values))
+
+w("")
+w("-- 4.1) 规格维度（详情页规格选择用）")
+w("DELETE FROM ec_product_spec WHERE product_id BETWEEN %d AND %d;"
+  % (PRODUCT_START, PRODUCT_START + PRODUCT_COUNT))
+for start in range(0, len(spec_rows), 200):
+    w("INSERT INTO ec_product_spec (product_id,spec_name,spec_values,sort) VALUES")
+    w(",\n".join("(%d,'%s','%s',%d)" % (pid, esc(name), esc(json.dumps(values, ensure_ascii=False)), idx)
+                  for idx, (pid, name, values) in enumerate(spec_rows[start:start + 200])) + ";")
 
 w("")
 w("-- 5) 订单 + 明细")

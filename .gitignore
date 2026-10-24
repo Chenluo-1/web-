@@ -19,7 +19,7 @@ sql/_unsplash_key.txt
 sql/_pilot*/
 sql/_live_data.sql
 sql/_bulk_data.sql
-sql/_fix_food_titles.sql
+sql/_fix_*.sql
 
 # --- IDE ---
 .idea/
