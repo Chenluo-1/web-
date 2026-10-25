@@ -5,11 +5,6 @@ function getRealtime() {
   return request.get('/dashboard/realtime')
 }
 
-// 销售趋势（day/week/month）
-function getSalesTrend(dimension) {
-  return request.get('/dashboard/salesTrend', { params: { dimension } })
-}
-
 // 商品排行（热销/滞销 TOP10）
 function getProductRank() {
   return request.get('/dashboard/productRank')
@@ -20,11 +15,6 @@ function getCategoryAnalysis() {
   return request.get('/dashboard/categoryAnalysis')
 }
 
-// 订单漏斗
-function getOrderFunnel() {
-  return request.get('/dashboard/orderFunnel')
-}
-
 // 手动重算最近 N 天汇总
 function aggregate(days) {
   return request.post('/dashboard/aggregate?days=' + days)
@@ -32,9 +22,7 @@ function aggregate(days) {
 
 export default {
   getRealtime,
-  getSalesTrend,
   getProductRank,
   getCategoryAnalysis,
-  getOrderFunnel,
   aggregate
 }

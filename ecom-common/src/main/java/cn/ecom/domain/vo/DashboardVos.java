@@ -32,19 +32,6 @@ public class DashboardVos {
         private BigDecimal amount;
     }
 
-    /** 订单漏斗 */
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class Funnel {
-        private Long expose;
-        private Long click;
-        private Long cart;
-        private Long order;
-        /** 统计区间说明 */
-        private String range;
-    }
-
     /** 排行榜响应 */
     @Data
     @NoArgsConstructor

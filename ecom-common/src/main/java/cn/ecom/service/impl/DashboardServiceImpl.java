@@ -6,7 +6,6 @@ import cn.ecom.domain.pojo.ProductSalesDaily;
 import cn.ecom.domain.pojo.StatDaily;
 import cn.ecom.domain.vo.DashboardVos;
 import cn.ecom.domain.vo.RealtimeVo;
-import cn.ecom.domain.vo.TrendVo;
 import cn.ecom.mapper.BehaviorMapper;
 import cn.ecom.mapper.CategoryMapper;
 import cn.ecom.mapper.OrderItemMapper;
@@ -22,11 +21,8 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.DayOfWeek;
 import java.time.LocalDate;
-import java.time.YearMonth;
 import java.time.ZoneId;
-import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -108,73 +104,7 @@ public class DashboardServiceImpl implements DashboardService {
         return vo;
     }
 
-    // ---------- 销售趋势 ----------
-
-    @Override
-    public TrendVo getSalesTrend(String dimension) {
-        String dim = dimension == null || dimension.isEmpty() ? "day" : dimension;
-        LocalDate today = LocalDate.now();
-        // 多拉一年用于同比查找（数据不足时同比为 null）
-        Date from = toDate(today.minusDays("month".equals(dim) ? 365 + 400 : 200));
-        List<StatDaily> rows = statDailyMapper.selectList(new LambdaQueryWrapper<StatDaily>()
-                .ge(StatDaily::getStatDate, from).orderByAsc(StatDaily::getStatDate));
-
-        Map<LocalDate, BigDecimal> dayGmv = new HashMap<>();
-        Map<LocalDate, Long> dayCnt = new HashMap<>();
-        Map<LocalDate, BigDecimal> weekGmv = new HashMap<>();
-        Map<LocalDate, Long> weekCnt = new HashMap<>();
-        Map<YearMonth, BigDecimal> monthGmv = new HashMap<>();
-        Map<YearMonth, Long> monthCnt = new HashMap<>();
-        for (StatDaily row : rows) {
-            LocalDate d = toLocalDate(row.getStatDate());
-            BigDecimal gmv = row.getGmv() == null ? BigDecimal.ZERO : row.getGmv();
-            long cnt = row.getPaidCount() == null ? 0 : row.getPaidCount();
-            dayGmv.merge(d, gmv, BigDecimal::add);
-            dayCnt.merge(d, cnt, Long::sum);
-            LocalDate weekKey = d.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-            weekGmv.merge(weekKey, gmv, BigDecimal::add);
-            weekCnt.merge(weekKey, cnt, Long::sum);
-            YearMonth monthKey = YearMonth.from(d);
-            monthGmv.merge(monthKey, gmv, BigDecimal::add);
-            monthCnt.merge(monthKey, cnt, Long::sum);
-        }
-
-        List<TrendVo.TrendPoint> points = new ArrayList<>();
-        if ("week".equals(dim)) {
-            for (int i = 11; i >= 0; i--) {
-                LocalDate key = today.minusWeeks(i).with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-                points.add(buildPoint(key.toString(), weekGmv.get(key), weekCnt.get(key),
-                        weekGmv.get(key.minusWeeks(1)), weekGmv.get(key.minusYears(1))));
-            }
-        } else if ("month".equals(dim)) {
-            for (int i = 11; i >= 0; i--) {
-                YearMonth key = YearMonth.from(today).minusMonths(i);
-                points.add(buildPoint(key.toString(), monthGmv.get(key), monthCnt.get(key),
-                        monthGmv.get(key.minusMonths(1)), monthGmv.get(key.minusYears(1))));
-            }
-        } else {
-            for (int i = 29; i >= 0; i--) {
-                LocalDate key = today.minusDays(i);
-                points.add(buildPoint(key.toString(), dayGmv.get(key), dayCnt.get(key),
-                        dayGmv.get(key.minusDays(1)), dayGmv.get(key.minusYears(1))));
-            }
-        }
-        return new TrendVo(dim, points);
-    }
-
-    private TrendVo.TrendPoint buildPoint(String label, BigDecimal gmv, Long cnt,
-                                          BigDecimal prev, BigDecimal prevYear) {
-        TrendVo.TrendPoint point = new TrendVo.TrendPoint();
-        point.setLabel(label);
-        point.setGmv(gmv == null ? BigDecimal.ZERO : gmv);
-        point.setOrderCount(cnt == null ? 0 : cnt);
-        point.setMom(percentChange(point.getGmv(), prev));
-        // 同比：去年同期无数据（或为 0）→ null，前端显示 "-"
-        point.setYoy(prevYear == null ? null : percentChange(point.getGmv(), prevYear));
-        return point;
-    }
-
-    // ---------- 排行 / 类目占比 / 漏斗 ----------
+    // ---------- 排行 / 类目占比 ----------
 
     @Override
     public DashboardVos.RankResult getProductRank() {
@@ -230,18 +160,6 @@ public class DashboardServiceImpl implements DashboardService {
                 .map(e -> new DashboardVos.CategoryShare(e.getKey(), e.getValue()))
                 .sorted((a, b) -> b.getAmount().compareTo(a.getAmount()))
                 .collect(Collectors.toList());
-    }
-
-    @Override
-    public DashboardVos.Funnel getOrderFunnel() {
-        LocalDate today = LocalDate.now();
-        Date from = toDate(today.minusDays(6));
-        Date to = toDate(today.plusDays(1));
-        long expose = nullSafe(behaviorMapper.countEvent("expose", from, to));
-        long click = nullSafe(behaviorMapper.countEvent("click", from, to));
-        long cart = nullSafe(behaviorMapper.countEvent("cart", from, to));
-        long order = toLong(orderMapper.selectPaidSummary(from, to).get("cnt"));
-        return new DashboardVos.Funnel(expose, click, cart, order, "近 7 天");
     }
 
     // ---------- T+1 汇总 ----------

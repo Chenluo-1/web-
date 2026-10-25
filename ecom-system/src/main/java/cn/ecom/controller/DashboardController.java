@@ -3,7 +3,6 @@ package cn.ecom.controller;
 import cn.ecom.annotation.OperLog;
 import cn.ecom.domain.vo.DashboardVos;
 import cn.ecom.domain.vo.RealtimeVo;
-import cn.ecom.domain.vo.TrendVo;
 import cn.ecom.service.DashboardService;
 import cn.ecom.utils.ResponseResult;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -17,7 +16,7 @@ import java.util.List;
 
 /**
  * 数据看板（接口层按角色做数据范围控制）：
- * - 营销数据（实时/趋势/漏斗）：dashboard:market
+ * - 营销数据（实时指标）：dashboard:market
  * - 商品数据（排行/类目占比）：dashboard:product
  * - 手动重算汇总：dashboard:refresh
  */
@@ -38,13 +37,6 @@ public class DashboardController {
         return ResponseResult.okResult(dashboardService.getRealtime());
     }
 
-    /** 销售趋势（dimension=day/week/month，含环比同比） */
-    @GetMapping("/salesTrend")
-    @PreAuthorize("@ss.hasPermission('dashboard:market')")
-    public ResponseResult<TrendVo> salesTrend(@RequestParam(defaultValue = "day") String dimension) {
-        return ResponseResult.okResult(dashboardService.getSalesTrend(dimension));
-    }
-
     /** 商品排行榜（近 30 天热销/滞销 TOP10） */
     @GetMapping("/productRank")
     @PreAuthorize("@ss.hasPermission('dashboard:product')")
@@ -57,13 +49,6 @@ public class DashboardController {
     @PreAuthorize("@ss.hasPermission('dashboard:product')")
     public ResponseResult<List<DashboardVos.CategoryShare>> categoryAnalysis() {
         return ResponseResult.okResult(dashboardService.getCategoryAnalysis());
-    }
-
-    /** 订单漏斗（近 7 天：曝光→点击→加购→成交） */
-    @GetMapping("/orderFunnel")
-    @PreAuthorize("@ss.hasPermission('dashboard:market')")
-    public ResponseResult<DashboardVos.Funnel> orderFunnel() {
-        return ResponseResult.okResult(dashboardService.getOrderFunnel());
     }
 
     /** 手动重算最近 N 天汇总（演示/应急用；每天 1:30 自动算昨天） */

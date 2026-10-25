@@ -37,7 +37,12 @@ request.interceptors.response.use(
     if (error.response && error.response.status === 401) {
       handleUnauthorized()
     } else if (!error.config || !error.config.silentError) {
-      ElMessage.error(error.message || '网络异常')
+      // 403/404 等后端会返回 {code,msg}，优先用它，避免只看到 axios 的英文原文
+      const body = error.response && error.response.data
+      const msg = body && typeof body === 'object' && body.msg
+        ? body.msg
+        : (error.response && error.response.status === 403 ? '没有访问该功能的权限' : error.message)
+      ElMessage.error(msg || '网络异常')
     }
     return Promise.reject(error)
   }

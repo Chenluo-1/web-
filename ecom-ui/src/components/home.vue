@@ -186,7 +186,9 @@ const quickLinks = computed(() =>
 
 // ---------- 今日经营概览 ----------
 const realtime = ref(null)
-const canSeeDashboard = computed(() => hasPerm('dashboard:view'))
+// 今日经营取的是 /dashboard/realtime，接口要求 dashboard:market（营销数据）；
+// 原来判的是 dashboard:view，商品运营有这个菜单权限但没有营销数据权限，一进首页就 403
+const canSeeDashboard = computed(() => hasPerm('dashboard:market'))
 
 const money = value => {
   const num = Number(value || 0)

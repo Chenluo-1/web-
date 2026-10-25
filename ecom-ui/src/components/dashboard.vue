@@ -17,39 +17,22 @@
       </div>
     </el-card>
 
-    <!-- 实时指标卡片（营销数据权限） -->
-    <el-row :gutter="14" v-if="canMarket && realtime">
-      <el-col :span="5" v-for="card in realtimeCards" :key="card.label">
-        <el-card shadow="never" class="metric-card">
-          <div class="metric-label">{{ card.label }}</div>
-          <div class="metric-value">{{ card.value }}</div>
-          <div class="metric-mom" v-if="card.mom !== undefined">
-            <template v-if="card.mom === null">环比：-</template>
-            <template v-else>
-              <span :class="Number(card.mom) >= 0 ? 'up' : 'down'">
-                {{ Number(card.mom) >= 0 ? '↑' : '↓' }}{{ Math.abs(card.mom) }}%
-              </span>
-              <span class="mom-label">环比昨日</span>
-            </template>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
-
-    <!-- 趋势 -->
-    <el-card shadow="never" class="chart-card" v-if="canMarket">
-      <template #header>
-        <div class="bar">
-          <span>销售趋势（GMV，支付成功口径）</span>
-          <el-radio-group v-model="dimension" size="small" @change="loadTrend">
-            <el-radio-button value="day">日</el-radio-button>
-            <el-radio-button value="week">周</el-radio-button>
-            <el-radio-button value="month">月</el-radio-button>
-          </el-radio-group>
+    <!-- 实时指标卡片（营销数据权限）：CSS Grid 五列自适应，窄屏自动折行 -->
+    <div class="metrics" v-if="canMarket && realtime">
+      <el-card shadow="never" class="metric-card" v-for="card in realtimeCards" :key="card.label">
+        <div class="metric-label">{{ card.label }}</div>
+        <div class="metric-value">{{ card.value }}</div>
+        <div class="metric-mom" v-if="card.mom !== undefined">
+          <template v-if="card.mom === null">环比：-</template>
+          <template v-else>
+            <span :class="Number(card.mom) >= 0 ? 'up' : 'down'">
+              {{ Number(card.mom) >= 0 ? '↑' : '↓' }}{{ Math.abs(card.mom) }}%
+            </span>
+            <span class="mom-label">环比昨日</span>
+          </template>
         </div>
-      </template>
-      <div ref="trendRef" class="chart"></div>
-    </el-card>
+      </el-card>
+    </div>
 
     <el-row :gutter="14" v-if="canProduct">
       <!-- 商品排行 -->
@@ -75,12 +58,6 @@
         </el-card>
       </el-col>
     </el-row>
-
-    <!-- 漏斗 -->
-    <el-card shadow="never" class="chart-card" v-if="canMarket">
-      <template #header>订单漏斗（{{ funnelRange }}：曝光→点击→加购→成交）</template>
-      <div ref="funnelRef" class="chart"></div>
-    </el-card>
   </div>
 </template>
 
@@ -109,18 +86,14 @@ const canRefresh = computed(() => {
 })
 
 const realtime = ref(null)
-const dimension = ref('day')
 const rankTab = ref('hot')
 const rankRange = ref('近 30 天')
-const funnelRange = ref('近 7 天')
 const autoRefresh = ref(false)
 const aggregating = ref(false)
 let refreshTimer = null
 
-const trendRef = ref(null)
 const rankRef = ref(null)
 const pieRef = ref(null)
-const funnelRef = ref(null)
 const charts = {}
 
 const realtimeCards = computed(() => {
@@ -150,43 +123,6 @@ const loadRealtime = async () => {
     const res = await dashboardHttp.getRealtime()
     realtime.value = res.data
   } catch (e) { /* 403 等静默 */ }
-}
-
-let trendData = null
-const loadTrend = async () => {
-  if (!canMarket.value) return
-  const res = await dashboardHttp.getSalesTrend(dimension.value)
-  trendData = res.data
-  await nextTick()
-  renderTrend()
-}
-
-const renderTrend = () => {
-  const chart = initChart(trendRef.value, 'trend')
-  if (!chart || !trendData) return
-  const points = trendData.points
-  chart.setOption({
-    tooltip: {
-      trigger: 'axis',
-      formatter: params => {
-        const p = points[params[0].dataIndex]
-        return `${p.label}<br/>GMV：¥${p.gmv}<br/>支付单数：${p.orderCount}` +
-          `<br/>环比：${p.mom === null ? '-' : p.mom + '%'}<br/>同比：${p.yoy === null ? '-' : p.yoy + '%'}`
-      }
-    },
-    grid: { left: 70, right: 30, top: 30, bottom: 60 },
-    xAxis: { type: 'category', data: points.map(p => p.label), axisLabel: { rotate: 45, fontSize: 10 } },
-    yAxis: { type: 'value' },
-    series: [{
-      name: 'GMV',
-      type: 'line',
-      smooth: true,
-      areaStyle: { opacity: 0.15 },
-      data: points.map(p => p.gmv),
-      itemStyle: { color: '#409eff' }
-    }]
-  })
-  chart.resize()
 }
 
 const rankData = ref(null)
@@ -241,37 +177,8 @@ const loadPie = async () => {
   chart.resize()
 }
 
-const loadFunnel = async () => {
-  if (!canMarket.value) return
-  const res = await dashboardHttp.getOrderFunnel()
-  const f = res.data
-  funnelRange.value = f.range
-  await nextTick()
-  const chart = initChart(funnelRef.value, 'funnel')
-  if (!chart) return
-  chart.setOption({
-    tooltip: { trigger: 'item', formatter: '{b}：{c}' },
-    series: [{
-      name: '漏斗',
-      type: 'funnel',
-      left: '10%',
-      width: '80%',
-      minSize: '18%',
-      sort: 'descending',
-      label: { show: true, position: 'inside', formatter: '{b}：{c}' },
-      data: [
-        { value: f.expose, name: '曝光' },
-        { value: f.click, name: '点击' },
-        { value: f.cart, name: '加购' },
-        { value: f.order, name: '成交' }
-      ]
-    }]
-  })
-  chart.resize()
-}
-
 const loadAll = async () => {
-  await Promise.all([loadRealtime(), loadTrend(), loadRank(), loadPie(), loadFunnel()])
+  await Promise.all([loadRealtime(), loadRank(), loadPie()])
 }
 
 const doAggregate = async () => {
@@ -279,7 +186,7 @@ const doAggregate = async () => {
   try {
     const res = await dashboardHttp.aggregate(7)
     ElMessage.success('已重算最近 ' + res.data + ' 天汇总')
-    await Promise.all([loadTrend(), loadRank(), loadPie()])
+    await Promise.all([loadRank(), loadPie()])
   } finally {
     aggregating.value = false
   }
@@ -339,9 +246,31 @@ onUnmounted(() => {
   font-size: 13px;
 }
 
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.metrics .metric-card {
+  margin-bottom: 0;
+}
+
+@media (max-width: 1280px) {
+  .metrics {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 .metric-card {
   text-align: center;
-  margin-bottom: 14px;
 }
 
 .metric-label {
